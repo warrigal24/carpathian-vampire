@@ -1,0 +1,103 @@
+Carpathian Vampire
+By Garry Francis
+For Z-code interpreters
+
+Solution by Garry Francis
+----------------------------------------
+This is a minimal solution. You'll need to EXAMINE lots of things for this solution to make sense. Scores are shown in brackets as +A=B, where A is points earned and B is cumulative points earned. Optional (but significant) commands are shown in parentheses. You can omit these once you know what to do.
+
+(X ME) (your name is Franz, occultist and vampire killer)
+(I) (you're wearing a cheap suit)
+(X SUIT) (it has a breast pocket)
+(X POCKET) (it contains a notebook)
+(X NOTEBOOK) (you can't see it while it's in your pocket)
+(GET NOTEBOOK) (now you can examine it)
+(X NOTEBOOK) (it contains your research notes)
+(READ NOTEBOOK) (you'll need garlic, crucifix & stake)
+(PUT NOTEBOOK IN POCKET)
+(S or W) (can't leave until you kill vampire, so you'll need to enter castle)
+(X CASTLE)
+(X DOOR) (it's closed)
+(OPEN DOOR) (it's locked, you'll have to find another way in)
+(X WINDOW) (it's above the door)
+(ENTER WINDOW) (it's out of reach)
+(X STABLE) (why not enter it to see what's inside)
+(ENTER WINDOW) (you need a way to get in)
+E (or ENTER STABLE)
+(X STABLE)
+(X LOFT) (can't see what's up there)
+(X CARRIAGE) (it's been seen driving through village drawn by two black horses)
+(X LADDER) (you can go UP or CLIMB LADDER to explore hay loft or GET LADDER)
+GET LADDER
+W
+DROP LADDER (you can now go UP or CLIMB LADDER)
+U (you drop to floor and can't get back to window) (+10=10)
+(X FRAME) (why is the mirror missing?)
+N (you're on your own now)
+(X PORTRAIT) (it's a creepy looking lady with hook nose)
+N
+W
+X SHEETS (you find a small key)
+GET KEY (+5=15)
+(LIE ON BED)
+(SLEEP) (you dream of a woman with a hook nose that tries to bite your neck)
+(GET UP)
+(EXAMINE WARDROBE) (it's closed, why is mirror missing?)
+OPEN WARDROBE (you find woman's clothing and silver crucifix)
+GET CRUCIFIX (+5=20)
+E
+E
+X TABLE (you find a candle)
+GET CANDLE (+5=25)
+W
+S
+W
+X SINK (you find a knife)
+GET KNIFE (+5=30)
+(X IT) (it's blunt)
+(OPEN CUPBOARD) (it's locked)
+UNLOCK CUPBOARD WITH KEY (+5=35)
+OPEN IT (you find tin can, garlic & matchbox)
+DROP KEY
+GET ALL FROM CUPBOARD (+5=40)
+OPEN MATCHES
+GET MATCH
+LIGHT IT
+LIGHT CANDLE (with lit match)
+PUT CANDLE IN TIN (to prevent it getting blown out in wind)
+DROP MATCHBOX
+E
+E
+GET POKER
+X ASHES (you find a piece of wood)
+GET WOOD (+5=45)
+W
+N (candle flickers in wind, but can protects it)
+D (+10=55)
+DROP TIN
+SHARPEN KNIFE WITH GRINDING STONE (you now have a sharp knife) (+5=60)
+SHARPEN WOOD WITH KNIFE (you now have a sharpened stake) (+5=65)
+PRY BARREL WITH POKER (+5=70)
+(X IT) (it contains a hammer)
+DROP POKER
+GET HAMMER (+5=75)
+U
+U
+X DOOR (there's a gap between door and wall)
+X GAP (there's a board on other side of door)
+PUT KNIFE IN GAP
+LIFT BOARD WITH KNIFE (board falls to floor and door is now unlocked) (+5=80)
+OPEN DOOR (knife falls to floor)
+W
+OPEN COFFIN (garlic and crucifix protect you, vampire is a woman)
+(EXAMINE VAMPIRE) (she has a hook nose like the woman in the painting)
+KILL VAMPIRE (with stake and hammer) (+10=90)
+GET KEY
+E
+D
+S
+S
+UNLOCK DOOR WITH KEY (+5=95)
+OPEN IT
+S (+5=100)
+***THE END***

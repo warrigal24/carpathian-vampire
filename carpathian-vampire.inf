@@ -1,0 +1,3540 @@
+!% -~S
+!% $OMIT_UNUSED_ROUTINES=1
+!% $ZCODE_LESS_DICT_DATA=1
+!========================================
+! Carpathian Vampire
+! Copyright © 2022 Garry Francis
+!========================================
+!Constant DEBUG;
+
+Constant Story "Carpathian Vampire";
+#Ifv5;
+Zcharacter table + '@{A9}'; !Add copyright symbol
+Constant Headline "^Copyright @{A9} 2022 Garry Francis^Type ABOUT for further info and credits.^^";
+#Ifnot;
+Constant Headline "^Copyright (c) 2022 Garry Francis^Type ABOUT for further info and credits.^^";
+#Endif;
+
+Array UUID_ARRAY string "UUID://e8fac5e8-4c9a-46e8-b520-b687867ed116//";
+#Ifdef UUID_ARRAY;
+#Endif;
+
+Release 1;
+Serial "220501";
+
+! Inform 6 constants
+Constant DEATH_MENTION_UNDO;
+Constant MAX_CARRIED 8;
+Constant MAX_SCORE 100;
+Constant OBJECT_SCORE 5;
+Constant ROOM_SCORE 10;
+
+Replace LockSub;
+Replace UnlockSub;
+
+! PunyInform constants
+Constant MSG_ATTACK_DEFAULT "Save your strength for the vampire.";
+Constant MSG_BURN_DEFAULT "Have you taken leave of your senses?";
+Constant MSG_JUMP "You jump on the spot to try and warm up. It doesn't work. You're still cold.";
+Constant MSG_LISTEN_DEFAULT "All is quiet.";
+Constant MSG_PARSER_NO_INPUT "You need to enter a command.";
+Constant MSG_PARSER_UNKNOWN_VERB "That's not a verb I recognise.";
+Constant MSG_PRAY_DEFAULT "You pray that you can get out of this predicament safely.";
+Constant MSG_SING_DEFAULT "You sing a Romanian ballad about the terror of the strigoi.";
+Constant MSG_SORRY_DEFAULT "Oh, don't apologise.";
+Constant MSG_SWIM_DEFAULT "Swimming requires water. Take a look around. Do you see any water here?";
+Constant MSG_TAKE_YOURSELF "That would be a clever trick.";
+Constant MSG_THINK_DEFAULT "You can't think of anything helpful at the moment.";
+Constant MSG_INVENTORY_DEFAULT 1000;
+Constant MSG_TAKE_NO_CAPACITY 1001;
+Constant MSG_PUSH_SCENERY 1002;
+Constant MSG_PULL_SCENERY 1002;
+Constant MSG_TURN_SCENERY 1002;
+Constant OPTIONAL_EXTENDED_METAVERBS;
+Constant OPTIONAL_EXTENDED_VERBSET;
+#Ifv5;
+Constant OPTIONAL_PROVIDE_UNDO;
+#Endif;
+Constant OPTIONAL_SCORED;
+
+! Game-specific constants
+Constant MAX_TUTORIAL 34;
+Constant TUT_ENTER_START 0;
+Constant TUT_AUTO1 1;
+Constant TUT_AUTO2 2;
+Constant TUT_AUTO3 3;
+Constant TUT_AUTO4 4;
+Constant TUT_INVENTORY 5;
+Constant TUT_EXAMINE_SUIT 6;
+Constant TUT_EXAMINE_POCKET 7;
+Constant TUT_EXAMINE_NOTEBOOK_IN_POCKET 8;
+Constant TUT_TAKE_NOTEBOOK_FROM_POCKET 9;
+Constant TUT_EXAMINE_NOTEBOOK 10;
+Constant TUT_READ_NOTEBOOK 11;
+Constant TUT_DROP_NOTEBOOK 12;
+Constant TUT_TAKE_NOTEBOOK 13;
+Constant TUT_PUT_NOTEBOOK_IN_POCKET 14;
+Constant TUT_CANT_GO 15;
+Constant TUT_EXAMINE_DOOR 16;
+Constant TUT_OPEN_DOOR 17;
+Constant TUT_EXAMINE_WINDOW 18;
+Constant TUT_EXAMINE_LOFT 19;
+Constant TUT_TAKE_LADDER 20;
+Constant TUT_ENTER_ROOM01 21;
+Constant TUT_DROP_LADDER 22;
+Constant TUT_ENTER_ROOM02 23;
+Constant TUT_ENTER_ROOM04 24;
+Constant TUT_OPEN_LOCKED_DOOR 25;
+Constant TUT_ENTER_ROOM05 26;
+Constant TUT_EXAMINE_BED 27;
+Constant TUT_OPEN_LOCKED_CUPBOARD 28;
+Constant TUT_OPEN_CUPBOARD 29;
+Constant TUT_MATCH_EXTINGUISHED 30;
+Constant TUT_CANDLE_EXTINGUISHED 31;
+Constant TUT_ENTER_DARK 32;
+Constant TUT_INVENTORY_FULL 33;
+
+Include "globals.h";
+
+Array tutorial_used -> MAX_TUTORIAL;
+
+Global tutorial = true;
+Global tutorial_shown = false;
+
+Property size 100;
+
+!========================================
+! Entry point routines
+!========================================
+[ ChooseObjects obj code;
+  if (code == 2)
+  {
+    ! Stage 1: Disambiguation
+    if (action_to_be == ##Take && obj notin player)
+      return 1; !Appropriate
+    if (action_to_be == ##Drop && obj in player && obj hasnt worn)
+      return 1; !Appropriate
+    return 0; !Inappropriate
+  }
+  ! Stage 2: Processing an "all"
+  if (obj has scenery or concealed or static or animate)
+    return 2; !Force exclusion
+  if (action_to_be == ##Take && obj in location && obj ~= player)
+    return 1; !Force inclusion
+  if (action_to_be == ##Drop && obj in player && obj hasnt worn)
+    return 1; !Force inclusion
+  return 0; !Accept parser's decision
+];
+
+[ InScope person i;
+  if (person == player && location == thedark)
+    objectloop(i in parent(player))
+      if (i has moved)
+        PlaceInScope(i);
+  rfalse;
+];
+
+[ LibraryMessages p_msg p_arg_1 p_arg_2;
+  switch (p_msg)
+  {
+    MSG_INVENTORY_DEFAULT:
+      p_arg_1 = "You're carrying ";
+      if (inventory_style == 0)
+      {
+        p_arg_1 = "You're carrying:";
+        p_arg_2 = NEWLINE_BIT;
+      }
+      if (PrintContents(p_arg_1, player, p_arg_2))
+      {
+        if (inventory_style)
+          print (char) '.';
+        new_line;
+        ShowTutorial(TUT_INVENTORY);
+        rtrue;
+      }
+      rfalse;
+    MSG_TAKE_NO_CAPACITY:
+      print "Your hands are full.^";
+      ShowTutorial(TUT_INVENTORY_FULL);
+      rtrue;
+    MSG_PUSH_SCENERY, MSG_PULL_SCENERY, MSG_TURN_SCENERY:
+      print_ret (CTheyreOrThats) noun, " fixed in place.";
+  }
+];
+
+[ LookRoutine;
+  if (location has visited)
+    return;
+  if (location == room13)
+    "^Your nostrils are accosted by a foul smell.";
+  if (~~tutorial)
+    return;
+  if (location == room01)
+    ShowTutorial(TUT_ENTER_START);
+  else if (location == room02)
+    ShowTutorial(TUT_ENTER_ROOM02);
+  else if (location == room04)
+    ShowTutorial(TUT_ENTER_ROOM04);
+  else if (location == room05)
+    ShowTutorial(TUT_ENTER_ROOM05);
+  else if (location == thedark)
+    ShowTutorial(TUT_ENTER_DARK);
+  return;
+];
+
+Include "puny.h";
+
+!========================================
+! Initialisation
+!========================================
+[ Initialise;
+  inventory_style = 0;!Tall style
+!  inventory_style = 1;!Wide style
+  lookmode = 2;
+  move suit to player;
+  player.description = PlayerDescription;
+  StartDaemon(room01);
+  location = room01;
+  print "Deep in the Carpathian Mountains, the Romanian villagers tell tales of the strigoi. The strigoi are said to be troubled spirits that have risen from the grave. They are attributed with the abilities to transform into an animal, become invisible and to gain vitality from the blood of their victims.^^There have been recent reports of peasant children dying mysteriously in the local village. Their bodies had been drained of blood and they had puncture wounds in their necks. The villagers believe that a recently deceased count is responsible. They believe he's a strigoi. In Western culture, we would call him a vampire.^^The villagers have hired you to kill the vampire. After a long journey, you have arrived at the former count's castle. A cold shiver runs down your spine. Killing vampires is never easy. Why should this one be any different? But hurry. You don't want to be his next victim!^^";
+  print_ret (italic)"[You're about to embark on an adventure. You can move around, examine things and manipulate things by typing simple text commands of one or more words, usually starting with a verb. The tutorial will offer suggestions to get you started. Commands in the tutorial are shown in upper case, but you can enter them in lower case, if you prefer. You can turn the tutorial off by typing TUTORIAL OFF and turn it back on by typing TUTORIAL ON. Good luck.]^^[WARNING: This game contains mild horror and violence. Do not play if you would find this disturbing.]^";
+];
+
+!========================================
+! Room 1: Outside Castle
+!========================================
+Object room01 "Outside Castle"
+with
+  description "You're standing outside the count's castle. The imposing front door of the castle is to the north and a stable is to the east. You notice an open window above the door, but it's out of reach.",
+  n_to
+  [;
+    PrintMsg(MSG_ENTER_NOT_OPEN, front_door);
+    ShowTutorial(TUT_EXAMINE_DOOR);
+    rtrue;
+  ],
+  s_to
+  [;
+    print "You only just got here. You can't leave until you kill the vampire.^";
+    ShowTutorial(TUT_CANT_GO);
+    rtrue;
+  ],
+  e_to
+  [;
+    if (tutorial && tutorial_used->TUT_AUTO3 == 0)
+    {
+      print "Not just yet...^";
+      ShowTutorial(TUT_AUTO3);
+      rtrue;
+    }
+    else
+      return room02;
+  ],
+  w_to
+  [;
+    <<Go FAKE_S_OBJ>>;
+  ],
+  u_to
+  [;
+    if (ladder in room01)
+    {
+      print "You climb the ladder and scramble through the open window. It's a long drop to the floor below, so you won't be able to get back through the window.^^";
+      return room04;
+    }
+  ],
+  in_to
+  [;
+    <<Go FAKE_E_OBJ>>;
+  ],
+  before
+  [;
+    Hint:
+      if (ladder in location)
+        "Out of reach?^Don't get madder^Use your brain^Climb the ladder";
+      if (ladder in player)
+        "See the ladder^It is tall^Drop it now^Climb the wall";
+      "Enter castle^If you're able^If you can't^Try the stable";
+    Smell:
+      if (noun == nothing)
+        "There's a hint of fragrant wild orchids in the air.";
+  ],
+  daemon
+  [;
+    if (action == ##Help or ##Hint)
+      return;
+    if (tutorial)
+    {
+      if (tutorial_shown == 0)
+        ShowTutorial(TUT_AUTO1);
+      if (tutorial_shown == 0)
+        ShowTutorial(TUT_AUTO2);
+      if (tutorial_shown == 0)
+        ShowTutorial(TUT_AUTO3);
+      if (tutorial_shown == 0)
+        ShowTutorial(TUT_AUTO4);
+      if (tutorial_shown)
+        tutorial_shown = 0;
+    }
+    if (location == room01 && random(5) == 1)
+      "^You hear a wolf howling in the distance.";
+    if (location ~= room01 or room02 or room03 && random(20) == 1)
+      switch (random(10))
+      {
+        1: "^You hear the rustling of a silk dress. You must be mistaken. It was probably the wind.";
+        2: "^You hear the soft sound of a lady's feet walking nearby.";
+        3: "^You feel something breathing on your neck, but when you spin around, there's nothing there.";
+        4: "^You hear something scuttle across the floor.";
+        5: "^You feel a cold gust of air.";
+        6: "^You thought you heard the flapping of wings nearby, but that can't be. You're indoors.";
+        7: "^A shadow seems to pass over you.";
+        8: "^You hear a faint voice whispering, ~Elga~.";
+        9: "^You feel like you're not alone.";
+        10: "^This castle gives you the creeps.";
+      }
+  ],
+has light;
+
+!----------------------------------------
+! Castle
+!----------------------------------------
+Object "castle" room01
+with
+  name 'count^s' 'castle',
+  description "The count's castle is constructed of stone, but it's not as large as you expected. It has a Gothic feel, but with a distinctly Romanian influence, similar to the other castles you've seen in this part of the Carpathian Mountains.",
+  before
+  [;
+    Climb:
+      <<Go FAKE_U_OBJ>>;
+    Enter, Go:
+      <<Go FAKE_N_OBJ>>;
+  ],
+has enterable scenery;
+
+!----------------------------------------
+! Walls
+!----------------------------------------
+Object "walls"
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'wall' or 'walls//p' or 'stone' or 'block' or 'blocks//p')
+      count++;
+    return count;
+  ],
+  description "The walls are made of large stone blocks and are cold to the touch.",
+  before
+  [;
+    Climb:
+      "The walls are quite smooth and slippery. It's too hard to get a foothold.";
+    Touch:
+      "The walls are cold.";
+  ],
+  found_in
+  [;
+    rtrue;
+  ],
+has pluralname scenery;
+
+!----------------------------------------
+! Front door
+!----------------------------------------
+Object front_door "front door"
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'front' or 'door' or 'wood' or 'wooden' or 'band' or 'bands//p' or 'iron' or 'hinge' or 'hinges//p')
+      count++;
+    return count;
+  ],
+  description
+  [;
+    print "The front door is much larger than it needs to be. It's made of heavy wood strengthened by bands of iron and mounted on heavy iron hinges. The door is currently ";
+    if (self has open)
+      "open.";
+    print "closed.^";
+    if (location == room01)
+      ShowTutorial(TUT_EXAMINE_DOOR);
+    rtrue;
+  ],
+  door_dir
+  [;
+    if (self in room01)
+      return n_to;
+    else
+      return s_to;
+  ],
+  door_to
+  [;
+    if (self in room01)
+      return room04;
+    deadflag = 2;
+    score = score + 5;
+    "As you step out of the cold castle into the cold mountain air, you thank God that this vampire is vanquished. The local villagers can now resume a normal life without the fear of having the blood sucked out of them as they sleep at night. Your mission here is complete.^^You later find out that the portrait of Countess Elga was painted by the celebrated Austrian painter Hans Makart (1840-1884) and he went mad shortly after painting it. The countess had died after a horse riding accident and the count died shortly after. The mysterious deaths of the children in the village were explained as being the result of an epidemic, but that didn't explain the puncture wounds in their necks.^^Fortunately, the deaths ceased after you killed the vampire countess. If she was a strigoi, that would certainly explain the strange events in the castle, but you may never know for sure.";
+  ],
+  before
+  [;
+    Attack:
+      "The door withstands your blows.";
+    Open:
+      if (self in room01)
+      {
+        PrintMsg(MSG_OPEN_LOCKED, self);
+        ShowTutorial(TUT_OPEN_DOOR);
+        rtrue;
+      }
+      if (self has locked)
+      {
+        PrintMsg(MSG_OPEN_LOCKED, self);
+        ShowTutorial(TUT_OPEN_LOCKED_DOOR);
+        rtrue;
+      }
+    Pull, Push:
+      "Try OPEN DOOR.";
+    Pry:
+      if (self has open)
+        "It's already open.";
+      if (self hasnt locked)
+        "The front door is unlocked. There's no need to pry it apart with anything, you can just open it.";
+      if (second == small_key)
+        "You can't pry the front door open with the large key. You'll need to unlock it first.";
+      "You can't pry the front door open with ", (ThatOrThose)second, ".";
+  ],
+  after
+  [;
+    Unlock:
+      if (self hasnt general)
+      {
+        give self general;
+        score = score + 5;
+      }
+  ],
+  with_key large_key,
+  found_in room01 room04,
+has door lockable locked openable scenery;
+
+!----------------------------------------
+! Window
+!----------------------------------------
+Object "window" room01
+with
+  name 'window',
+  description
+  [;
+    print "It looks decorative, rather than functional, but you reckon you could climb through it if you could reach it.^";
+    ShowTutorial(TUT_EXAMINE_WINDOW);
+    rtrue;
+  ],
+  before
+  [;
+    Climb, Enter, Go:
+      if (ladder in location)
+        <<Go FAKE_U_OBJ>>;
+      print "It's out of reach.^";
+      ShowTutorial(TUT_EXAMINE_WINDOW);
+      rtrue;
+  ],
+has enterable scenery;
+
+!----------------------------------------
+! Stable
+!----------------------------------------
+Object "stable" room01
+with
+  name 'castle^s' 'stable',
+  description "You can only see that it's a stone building. You can enter the stable if you want to see what's inside.",
+  before
+  [;
+    Enter, Go:
+      <<Go FAKE_E_OBJ>>;
+  ],
+has scenery;
+
+!----------------------------------------
+! Cheap suit
+!----------------------------------------
+Object suit "cheap suit"
+with
+  name 'cheap' 'suit',
+  description
+  [;
+    print "It's a cheap suit that you bought in one of the local villages. It's warm and sturdy. ";
+    <<Search self>>;
+  ],
+!  invent
+!  [;
+!    if (inventory_stage == 2 && children(self) == 0)
+!    {
+!      print " (worn)";
+!      rtrue;
+!    }
+!  ],
+  before
+  [;
+    Disrobe:
+      "Don't be silly. It's freezing.";
+    Receive:
+      "You can't put anything on the coat.";
+    Search:
+      if (pocket in nothing)
+        move pocket to self;
+      PrintMsg(MSG_SEARCH_ON_IT_ISARE);
+      ShowTutorial(TUT_EXAMINE_SUIT);
+      rtrue;
+  ],
+has clothing supporter worn;
+
+!----------------------------------------
+! Pocket
+!----------------------------------------
+Object pocket "breast pocket"
+with
+  name 'breast' 'pocket',
+  description
+  [;
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2)
+    {
+      if (action == ##Inv && inventory_style == 0)
+        PrintContents(0, self);
+      else if (PrintContents(" (which contains ", self))
+        print ")";
+      rtrue;
+    }
+  ],
+  before
+  [;
+    Receive:
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit in the pocket.";
+    Search:
+      if (notebook in nothing)
+        move notebook to self;
+      if (children(self) == 0)
+        PrintMsg(MSG_SEARCH_EMPTY);
+      else
+        PrintMsg(MSG_SEARCH_IN_IT_ISARE);
+      ShowTutorial(TUT_EXAMINE_POCKET);
+      rtrue;
+    Take:
+      "That's attached to the suit. You would need a pair of scissors to cut it off, but then you wouldn't have a pocket any more.";
+  ],
+  after
+  [;
+    LetGo:
+      PrintMsg(MSG_TAKE_DEFAULT);
+      ShowTutorial(TUT_TAKE_NOTEBOOK_FROM_POCKET);
+      rtrue;
+    Receive:
+      PrintMsg(MSG_INSERT_DEFAULT);
+      ShowTutorial(TUT_PUT_NOTEBOOK_IN_POCKET);
+      rtrue;
+  ],
+  size 5,
+has container open static;
+
+!----------------------------------------
+! Notebook
+!----------------------------------------
+Object notebook "notebook" !pocket
+with
+  name 'notebook',
+  description
+  [;
+    if (self in pocket)
+    {
+      print "It's a bit hard to see while it's in your pocket.^";
+      ShowTutorial(TUT_EXAMINE_NOTEBOOK_IN_POCKET);
+      rtrue;
+    }
+    print "It's a tattered notebook that you use to keep all your research notes regarding vampires and the occult. You've read it many times, but it never hurts to read it again to refresh your memory.^";
+    ShowTutorial(TUT_EXAMINE_NOTEBOOK);
+    rtrue;
+  ],
+  before
+  [;
+    Open:
+      if (self in pocket)
+      {
+        print "It's a bit hard to open while it's in your pocket.^";
+        ShowTutorial(TUT_EXAMINE_NOTEBOOK_IN_POCKET);
+        rtrue;
+      }
+      <<Read self>>;
+    Read:
+      if (self in pocket)
+      {
+        print "It's a bit hard to read while it's in your pocket.^";
+        ShowTutorial(TUT_EXAMINE_NOTEBOOK_IN_POCKET);
+        rtrue;
+      }
+      print "You turn to the most relevant entry for the current situation. 'The most effective way to repel a vampire is with garlic and religious artifacts, such as a crucifix. The most effective way to kill a vampire is to drive a stake through its heart.'^";
+      ShowTutorial(TUT_READ_NOTEBOOK);
+      rtrue;
+  ],
+  after
+  [;
+    Drop:
+      PrintMsg(MSG_DROP_DROPPED);
+      ShowTutorial(TUT_DROP_NOTEBOOK);
+      rtrue;
+    Take:
+      PrintMsg(MSG_TAKE_DEFAULT);
+      ShowTutorial(TUT_TAKE_NOTEBOOK);
+      rtrue;
+  ],
+  size 3,
+has;
+
+!========================================
+! Room 2: Stable
+!========================================
+Object room02 "Stable"
+with
+  description
+  [;
+    print "You're in the castle's stable. The walls are made of stone, the same as the castle, but the fittings inside the stable are made of wood. There's a hay loft overhead";
+    if (ladder in self)
+      print " which you can reach by climbing the ladder.";
+    else
+      print ", but you can't reach it because the ladder is missing.";
+    " Sunlight filters in from the exit to the west.";
+  ],
+  w_to
+  [;
+    PlayerTo(room01, 0);
+    ShowTutorial(TUT_ENTER_ROOM01);
+    rtrue;
+  ],
+  u_to
+  [;
+    if (ladder in self)
+      return room03;
+    "You can't go that way because the ladder is missing.";
+  ],
+  out_to
+  [;
+    <<Go FAKE_W_OBJ>>;
+  ],
+  before
+  [;
+    Hint:
+      if (ladder hasnt moved)
+        "Look at all^Do a scan^Take the ladder^If you can";
+      if (ladder in player)
+        "See the ladder^It is tall^Take it now^To the wall";
+    Smell:
+      if (noun == nothing)
+        "There's a faint smell of horse manure, even though there's no longer any horses here.";
+  ],
+has light;
+
+!----------------------------------------
+! Stable
+!----------------------------------------
+Object "stable" room02
+with
+  name 'castle^s' 'stable',
+  description "The only thing of significance in the stable is the carriage.",
+  before
+  [;
+    Exit:
+      <<Go FAKE_W_OBJ>>;
+  ],
+has scenery;
+
+!----------------------------------------
+! Hay loft
+!----------------------------------------
+Object "hay loft" room02
+with
+  name 'hay' 'loft',
+  description
+  [;
+    print "You can't see what's up there from down here.^";
+    ShowTutorial(TUT_EXAMINE_LOFT);
+    rtrue;
+  ],
+has scenery;
+
+!----------------------------------------
+! Wooden fittings
+!----------------------------------------
+Object "wooden fittings" room02
+with
+  name 'wood' 'wooden' 'fitting' 'fittings//p',
+has scenery;
+
+!----------------------------------------
+! Sunlight
+!----------------------------------------
+Object "sunlight" room02
+with
+  name 'sunlight' 'exit',
+  description "The sunlight streams in through the stable exit to the west.",
+has scenery;
+
+!----------------------------------------
+! Carriage
+!----------------------------------------
+Object "carriage" room02
+with
+  name 'carriage' 'coach' 'cart',
+  description "This is a stately carriage in dark bottle green livery with gold trim and a coat of arms. A carriage identical to this was recently reported driving through the streets of the local village at night. It was drawn by two ghostly black horses with no driver.",
+  before
+  [;
+    Enter:
+      "You get into the carriage and can't find anything useful, so you get out again. The carriage isn't going anywhere without any horses to draw it.";
+    Pull, Push, Turn:
+      "It won't budge without any horses.";
+    Take:
+      "You would need a couple of horses to draw the carriage, but there is no sign of any horses in the stable.";
+  ],
+has static;
+
+!----------------------------------------
+! Coat of arms
+!----------------------------------------
+Object "coat of arms" room02
+with
+  parse_name
+  [ nw count;
+    nw = NextWord();
+    if (nw == 'coat')
+      if (NextWord() == 'of' && NextWord() == 'arms//p')
+        return 3;
+      else
+        return 1;
+    if (nw == 'arms//p')
+      return 1;
+    count = 0;
+    while (nw == 'bottle' or 'green' or 'family' or 'crest' or 'livery')
+    {
+      count++;
+      nw = NextWord();
+    }
+    return count;
+  ],
+  description "You recognise it as the family crest of the deceased count.",
+has scenery;
+
+!----------------------------------------
+! Horses
+!----------------------------------------
+Object "horses" room02
+with
+  name 'horse' 'horses//p',
+  description "It doen't look like there have been any horses here since the count died.",
+has pluralname scenery;
+
+!----------------------------------------
+! Ladder
+!----------------------------------------
+Object ladder "ladder" room02
+with
+  name 'ladder',
+  description
+  [;
+    print "It's a portable wooden ladder about three metres long.";
+    if (self in room01)
+      " The ladder leads up to the window over the front door of the castle.";
+    if (self in room02)
+      " The ladder leads up to the hay loft.";
+    "";
+  ],
+  before
+  [;
+    Climb, Enter, Go:
+      if (ladder in player)
+        "You can't very well climb the ladder while you're holding it.";
+      if (ladder in room01 or room02)
+        <<Go FAKE_U_OBJ>>;
+  ],
+  after
+  [;
+    Drop:
+      if (location == room01)
+      {
+        print "You lean the ladder against the castle wall. If you climb it, you should be able to reach the open window over the front door.^";
+        ShowTutorial(TUT_DROP_LADDER);
+        rtrue;
+      }
+      if (location == room02)
+        "You put the ladder back against the hay loft where it belongs. If you climb it, you can reach the hay loft.";
+    Take:
+      PrintMsg(MSG_TAKE_DEFAULT);
+      ShowTutorial(TUT_TAKE_LADDER);
+      rtrue;
+
+  ],
+  size 14,
+has;
+
+!========================================
+! Room 3: Hay Loft
+!========================================
+Object room03 "Hay Loft"
+with
+  description "This is the hay loft above the stable. There's no longer any hay here. The only exit is back down the ladder.",
+  d_to room02,
+  before
+  [;
+    Hint:
+      "Loft is clear^No more hay^Come again^Another day";
+    Smell:
+      if (noun == nothing)
+        "There's a musty smell of hay, even though there's no longer any hay here.";
+  ],
+has light;
+
+!----------------------------------------
+! Hay loft
+!----------------------------------------
+Object "hay loft" room03
+with
+  name 'hay' 'loft',
+  description "This is where the hay was stored for feeding the horses. There's no longer any hay here, as there's no longer any horses in the stable.",
+has scenery;
+
+!----------------------------------------
+! Stable
+!----------------------------------------
+Object "stable" room03
+with
+  name 'castle^s' 'stable',
+  description "You can't see much of the stable from up here.",
+has scenery;
+
+!----------------------------------------
+! Ladder
+!----------------------------------------
+Object "ladder" room03
+with
+  name 'ladder' 'exit',
+  description "It leads back down to the stable.",
+  before
+  [;
+    Climb, Enter, Go:
+      <<Go FAKE_D_OBJ>>;
+  ],
+has scenery;
+
+!----------------------------------------
+! Horses
+!----------------------------------------
+Object "horses" room03
+with
+  name 'horse' 'horses//p',
+  description "There are no horses here, as horses can't climb ladders.",
+has pluralname scenery;
+
+!========================================
+! Room 4: Lobby
+!========================================
+Object room04 "Lobby"
+with
+  description "You're in the lobby of the castle. It's very cold. You see a passageway extending to the north and the front door of the castle to the south. There's an open window above the door, but it's out of reach.",
+  n_to room05,
+  s_to front_door,
+  out_to front_door,
+  before
+  [;
+    Hint:
+      if (front_door has locked)
+        "Unlock door^With the key^Pull it open^To be free";
+      "Leave the castle^Why the wait?^Leave here now^To your fate";
+  ],
+has light scored;
+
+!----------------------------------------
+! Lobby
+!----------------------------------------
+Object "lobby" room04
+with
+  name 'lobby',
+  description "This is where the count would have greeted his guests. There are no furnishings apart from the mirror frame mounted on the east wall.",
+has scenery;
+
+!----------------------------------------
+! Window
+!----------------------------------------
+Object "window" room04
+with
+  name 'window',
+  description "That's the window you used to enter the lobby. You would need another ladder to reach it.",
+  before
+  [;
+    Climb, Enter, Go:
+      "It's out of reach.";
+  ],
+has scenery;
+
+!----------------------------------------
+! Passageway
+!----------------------------------------
+Object "passageway"
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'passage' or 'passageway' or 'corridor' or 'hall' or 'hallway')
+      count++;
+    return count;
+  ],
+  description
+  [;
+    print "This is the main corridor of the castle. It extends towards the ";
+    if (location == room04)
+      "north.";
+    if (location == room08)
+      "south.";
+    "north and south.";
+  ],
+  found_in room04 room05 room08,
+has scenery;
+
+!----------------------------------------
+! Mirror frame
+!----------------------------------------
+Object "mirror frame" room04
+with
+  name 'mirror' 'frame',
+  initial "There's a mirror frame mounted on the wall.",
+  description "It's an ornately engraved oval frame that once held a mirror. Strangely, the mirror itself has been broken or removed and there's no sign of it left in the frame.",
+  before
+  [;
+    Pull, Push, Take, Transfer, Turn:
+      "It's firmly attached to the wall.";
+  ],
+has static;
+
+!========================================
+! Room 5: Passageway
+!========================================
+Object room05 "Passageway"
+with
+  description "You're in the middle of a gloomy passageway. It continues to the north and south with exits to the east and west.",
+  n_to room08,
+  s_to room04,
+  e_to room07,
+  w_to room06,
+  before
+  [;
+    Hint:
+      if (portrait hasnt general)
+        "Examine painting^On the wall^Then try going^Down the hall";
+      if (lady hasnt general)
+        "Evil woman^Looks quite shady^Did you try^Talk to lady?";
+  ],
+has light;
+
+!----------------------------------------
+! Portrait
+!----------------------------------------
+Object portrait"life-sized portrait" room05
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'life-sized' or 'oil' or 'painting' or 'portrait' or 'picture')
+      count++;
+    return count;
+  ],
+  initial "There's a life-sized portrait mounted on the wall.",
+  description
+  [;
+    give self general;
+    "It's an oil painting of a lady with a hook nose wearing a large, broad-brimmed hat and a fur coat with a high collar. You're mesmerised by her beauty and the evil expression in her eyes. After staring at the portrait for a short time, you could swear that she blinked at you. A cold shiver runs down your spine.";
+  ],
+  before
+  [;
+    Pull, Push, Take, Transfer, Turn:
+      "It's firmly attached to the wall.";
+    Talk:
+      <<Talk lady>>;
+  ],
+has static;
+
+!----------------------------------------
+! Lady
+!----------------------------------------
+Object lady "lady" room05
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'countess' or 'contesa' or 'elga' or 'lady' or 'woman' or 'evil' or 'expression' or 'eye' or 'eyes//p')
+      count++;
+    return count;
+  ],
+  description "She looks beautiful, yet evil at the same time.",
+  life
+  [;
+    Talk:
+      give self general;
+      "Paintings can't talk, but you could swear that the lady in the painting smiled at you.";
+  ],
+  before
+  [;
+    Pull, Push, Take, Transfer, Turn:
+      "She's part of the portrait.";
+  ],
+has animate female scenery;
+
+!----------------------------------------
+! Nose
+!----------------------------------------
+Object "nose" room05
+with
+  name 'hook' 'nose',
+  description "The lady in the portrait has a hooked nose, but that is common amongst the people in this part of Romania.",
+  before
+  [;
+    Pull, Push, Take, Transfer, Turn:
+      "That's part of the portrait.";
+  ],
+has scenery;
+
+!----------------------------------------
+! Broad-brimmed hat
+!----------------------------------------
+Object "broad-brimmed hat" room05
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'broad-brimmed' or 'broad' or 'brimmed' or 'hat' or 'crimson-coloured' or 'crimson-colored' or 'crimson' or 'coloured' or 'colored' or 'velvet')
+      count++;
+    return count;
+  ],
+  description "It looks to be made of crimson-coloured velvet.",
+  before
+  [;
+    Pull, Push, Take, Transfer, Turn:
+      "That's part of the portrait.";
+  ],
+has scenery;
+
+!----------------------------------------
+! Fur coat
+!----------------------------------------
+Object "fur coat" room05
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'fur' or 'coat' or 'braiding' or 'shoulder' or 'clothing')
+      count++;
+    return count;
+  ],
+  description "It has some intricate braiding over the shoulder. This was clearly a woman of some importance.",
+  before
+  [;
+    Pull, Push, Take, Transfer, Turn:
+      "That's part of the portrait.";
+  ],
+has scenery;
+
+!----------------------------------------
+! High collar
+!----------------------------------------
+Object "high collar" room05
+with
+  name 'high' 'collar',
+  description "The high collar indicates a woman of wealth. The peasants would never wear, or even own, clothing like this.",
+  before
+  [;
+    Pull, Push, Take, Transfer, Turn:
+      "That's part of the portrait.";
+  ],
+has scenery;
+
+!========================================
+! Room 6: Kitchen
+!========================================
+Object room06 "Kitchen"
+with
+  description "This is clearly the castle's kitchen, as it's full of pots and pans. The exit is to the east.",
+  e_to room05,
+  out_to room05,
+  before
+  [;
+    Hint:
+      if (knife in nothing)
+        "If you're stuck^Let me think^Why not look^In the sink?";
+      if (cupboard has locked)
+        "If it's locked^Trust in me^Search the sheets^For the key";
+      "When you have^Finished looking^Don't waste time^With the cooking";
+    Smell:
+      if (noun == nothing)
+        "It smells a bit mouldy.";
+  ],
+has light;
+
+!----------------------------------------
+! Kitchen
+!----------------------------------------
+Object "kitchen" room06
+with
+  name 'castle^s' 'kitchen',
+  description "The kitchen doesn't look like it's been used for quite some time, as there are faint signs of rust on some of the metal utensils.",
+has scenery;
+
+!----------------------------------------
+! Pots and pans
+!----------------------------------------
+Object "pots and pans" room06
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'pot' or 'pots//p' or 'pan' or 'pans//p' or 'rust' or 'metal' or 'utensil' or 'utensils//p' or 'mould' or 'mold')
+      count++;
+    return count;
+  ],
+  description "They're ordinary pots and pans used for cooking. There's mould growing on a few of the ones that hadn't been washed properly.",
+  before
+  [;
+    Take:
+      "You're here to kill a vampire, not cook a stew.";
+  ],
+has pluralname scenery;
+
+!----------------------------------------
+! Oven
+!----------------------------------------
+Object "oven" room06
+with
+  name 'wood-fired' 'oven' 'stove',
+  article "an",
+  description
+  [;
+    print "It's a simple wood-fired oven, but it doesn't have any fuel. ";
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2 && (self hasnt open || children(self) == 0))
+      rtrue;
+  ],
+  before
+  [;
+    Receive:
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit in the oven.";
+  ],
+  size 11,
+has container openable static;
+
+!----------------------------------------
+! Sink
+!----------------------------------------
+Object sink "sink" room06
+with
+  name 'granite' 'sink',
+  description
+  [;
+    print "It's a deep sink made of granite. ";
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2 && children(self) == 0)
+      rtrue;
+  ],
+  before
+  [;
+    Receive:
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit in the sink.";
+    Search:
+      if (knife in nothing)
+        move knife to self;
+  ],
+  size 11,
+has container open static;
+
+!----------------------------------------
+! Knife
+!----------------------------------------
+Object knife "knife"
+with
+  name 'knife',
+  description
+  [;
+    print "It's a simple kitchen knife, but very ";
+    if (self has general)
+      "sharp.";
+    else
+      "blunt.";
+  ],
+  before
+  [;
+    Lift:
+      if (self in gap && board in location && board has scenery)
+        <<Lift board knife>>;
+    Push:
+      if (TestScope(vampire))
+        <<Attack vampire self>>;
+    Sharpen:
+      if (self has general)
+        "It's already quite sharp.";
+      if (player notin room11)
+        "And how do you propose to do that?";
+      give self general;
+      score = score + 5;
+      "You grind the knife on the grinding wheel until it has a sharp edge.";
+  ],
+  after
+  [;
+    Insert:
+      if (second == gap)
+      {
+        print "The knife slides easily into the gap and comes to rest between the wooden door and the stone wall.";
+        if (board in location && board has scenery)
+          print " You could probably lift the board now.";
+        "";
+      }
+  ],
+  size 7,
+has scored;
+
+!----------------------------------------
+! Small cupboard
+!----------------------------------------
+Object cupboard "small cupboard" room06
+with
+  name 'small' 'cupboard',
+  description
+  [;
+    print "It's a rather plain kitchen cupboard. ";
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2 && (self hasnt open || children(self) == 0))
+      rtrue;
+  ],
+  before
+  [;
+    Open:
+      if (self has locked)
+      {
+        PrintMsg(MSG_OPEN_LOCKED);
+        ShowTutorial(TUT_OPEN_LOCKED_CUPBOARD);
+        rtrue;
+      }
+    Pry:
+      if (self has open)
+        "It's already open.";
+      if (self hasnt locked)
+        "The cupboard is unlocked. There's no need to pry it apart with anything, you can just open it.";
+      if (second == small_key)
+        "You can't pry the cupboard open with the small key. You'll need to unlock it first.";
+      "You can't pry the cupboard open with ", (ThatOrThose)second, ".";
+    Receive:
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit in the cupboard.";
+  ],
+  after
+  [;
+    Open:
+      PrintMsg(MSG_OPEN_DEFAULT);
+      if (children(self) > 1)
+        ShowTutorial(TUT_OPEN_CUPBOARD);
+      rtrue;
+    Unlock:
+      if (self hasnt general)
+      {
+        give self general;
+        score = score + 5;
+      }
+  ],
+  with_key small_key,
+  size 11,
+has container lockable locked openable static;
+
+!----------------------------------------
+! Tin can
+!----------------------------------------
+Object can "tin can" cupboard
+with
+  name 'jam' 'tin' 'can',
+  description
+  [;
+    print "It looks like an old jam tin without any lid. ";
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2)
+    {
+      if (action == ##Inv && inventory_style == 0)
+        PrintContents(0, self);
+      else if (PrintContents(" (which contains ", self))
+        print ")";
+      rtrue;
+    }
+  ],
+  before
+  [;
+    Receive:
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit in the tin can.";
+  ],
+  size 10,
+has container open;
+
+!----------------------------------------
+! String of garlic
+!----------------------------------------
+Object garlic "string of garlic" cupboard
+with
+  parse_name
+  [ nw;
+    nw = NextWord();
+    if (nw == 'string')
+      if (NextWord() == 'of' && NextWord() == 'garlic')
+        return 3;
+      else
+        return 1;
+    if (nw == 'garlic')
+      return 1;
+    return 0;
+  ],
+  description
+  [;
+    print "It's a string of garlic that exudes a rather disgusting smell. The locals put the garlic bulbs on a string after harvesting so that it can dry when exposed to the air. It's also believed to repel vampires.";
+    if (notebook has general && vampire notin nothing)
+      print " It's one of the four things you'll need to defeat the vampire.";
+    "";
+  ],
+  before
+  [;
+    Smell:
+      "Phew.";
+    Eat:
+      "That would give you bad breath.";
+  ],
+  after
+  [;
+    Wear:
+      "You hang it around your neck, but wish you hadn't. The pungent small is really disgusting, but you'll get used to it.";
+  ],
+  size 8,
+has clothing scored;
+
+!----------------------------------------
+! Matchbox
+!----------------------------------------
+Object matchbox "matchbox" cupboard
+with
+  parse_name
+  [ nw;
+    nw = NextWord();
+    if (nw == 'box')
+      if (NextWord() == 'of' && NextWord() == 'matches')
+        return 3;
+      else
+        return 1;
+    if (nw == 'matchbox')
+      return 1;
+    if (nw == 'match' && NextWord() == 'box')
+      return 2;
+    return 0;
+  ],
+  description
+  [;
+    print "It's a small wooden box for holding matches. ";
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2 && self hasnt open)
+      rtrue;
+  ],
+  before
+  [;
+    if (location == thedark)
+      "You fumble around in the dark, but you can't see what you're doing.";
+    Receive:
+      if (self hasnt open)
+        "You'll have to open the matchbox first.";
+      if (match has light)
+        "Are you crazy? If you put a lit match back in the box, it will catch alight.";
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit in the matchbox.";
+  ],
+  after
+  [;
+    Receive:
+      self.number++;
+      if (self.number == 1)
+        move matches to self;
+      remove match;
+      "You put the match back in the box.";
+  ],
+  number 10,
+  size 2,
+has container openable;
+
+!----------------------------------------
+! Matches
+!----------------------------------------
+Object matches "matches" matchbox
+with
+  parse_name
+  [ nw;
+    nw = NextWord();
+    if (nw == 'match' && ~~TestScope(match))
+    {
+      give self ~pluralname;
+      return 1;
+    }
+    if (nw == 'matches')
+    {
+      give self pluralname;
+      return 1;
+    }
+    return 0;
+  ],
+  article
+  [;
+    print (number)matchbox.number;
+  ],
+  short_name
+  [;
+    if (matchbox.number == 1)
+      print "match";
+    else
+      print "matches";
+    rtrue;
+  ],
+  description
+  [;
+    if (matchbox.number == 0)
+      "There's none left.";
+    if (matchbox.number == 1)
+      "It's a safety match with a phosphorous head and it's the last one left.";
+    "They're safety matches with phosphorous heads. There are ", (number)matchbox.number, " left.";
+  ],
+  before
+  [;
+    if (location == thedark)
+      "You fumble around in the dark, but you can't see what you're doing.";
+    if (matchbox hasnt open)
+      "You'll have to open the matchbox first.";
+    Burn:
+      "You'll have to take one out of the matchbox first.";
+    Count:
+      if (matchbox.number == 1)
+        print "There's only one match left in the box";
+      else
+        print"There are ", (number)matchbox.number, " matches in the box";
+      if (TestScope(match))
+        print " and one out of the box";
+      ".";
+    Remove, Take, Transfer:
+      if (self has pluralname)
+        "You can only take one at a time.";
+      if (match notin nothing)
+        "You've already taken one.";
+      if (AtCapacity())
+      {
+        PrintMsg(MSG_TAKE_NO_CAPACITY);
+        rtrue;
+      }
+      matchbox.number--;
+      if (matchbox.number == 0)
+        remove self;
+      move match to player;
+      update_moved = true;
+      PronounNotice(match);
+      "You take a match out of the box.";
+  ],
+  size 1,
+has pluralname;
+
+!----------------------------------------
+! Match
+!----------------------------------------
+Object match "match"
+with
+  name 'match',
+  description
+  [;
+    if (self has light)
+      "It's a lit match.";
+    "It's a safety match with a phosphorous head. You can light it on the matchbox.";
+  ],
+  short_name
+  [;
+    if (self has light)
+      print "lit ";
+  ],
+  invent
+  [;
+    if (inventory_stage == 2)
+      rtrue;
+  ],
+  before
+  [;
+    if (location == thedark)
+      "You fumble around in the dark, but you can't see what you're doing.";
+    Burn:
+      if (self has light)
+        "It's already lit.";
+      if (self notin player)
+        "You're not holding it.";
+      if (matchbox notin player)
+        "You need the matchbox to light it.";
+      if (location == room08 or room12)
+      {
+        remove self;
+        "The wind blows it out. It's now useless, so you throw it away. Next time, try lighting the match where it's not so windy.";
+      }
+      give self light;
+      self.time_left = 4;
+      StartDaemon(self);
+      "You strike the match on the side of the matchbox and it sputters into flame.";
+    Extinguish:
+      if (self hasnt light)
+        "It's not lit.";
+      give self ~light;
+      remove self;
+      StopDaemon(self);
+      "You blow out the match and throw it away.";
+  ],
+  daemon
+  [;
+    self.time_left--;
+    if (self.time_left == 0)
+    {
+      give self ~light;
+      if (TestScope(self))
+      {
+        print "^The match goes out";
+        if (self in player)
+          print " and you throw it away";
+        print ".^";
+      }
+      remove self;
+      StopDaemon(self);
+      rtrue;
+    }
+    if (location == room08 or room12 && TestScope(self))
+    {
+      if (self in can)
+        "^The match's flame flickers, but the tin can protects it from the wind.";
+      give self ~light;
+      remove self;
+      StopDaemon(self);
+      print "^The wind blows out the match, so you throw it away. You'll need to protect it from the wind next time.^";
+      ShowTutorial(TUT_MATCH_EXTINGUISHED);
+      rtrue;
+    }
+  ],
+  time_left 0,
+  size 1,
+has;
+
+!========================================
+! Room 7: Dining room
+!========================================
+Object room07 "Dining Room"
+with
+  description "This would once have been the warmest room in the castle due to the fireplace in the eastern wall. However, the ashes in the fire are now just as cold as everywhere else in this gloomy place. The exit is to the west.",
+  w_to room05,
+  out_to room05,
+  before
+  [;
+    Hint:
+      if (wood in nothing && stake in nothing)
+        "Ashes to ashes^Dust to dust^Search the fire^Is a must";
+      if (stake in nothing)
+        "Make a stake^If you could^With a knife^Sharpen wood";
+      if (vampire notin nothing)
+        "This is no^Time to eat^You have evil^Yet to beat";
+  ],
+has light;
+
+!----------------------------------------
+! Dining room
+!----------------------------------------
+Object "dining room" room07
+with
+  name 'dining' 'room',
+  description "This is where the count would have eaten his meals, but it doesn't look like it's been used since the count's death.",
+has scenery;
+
+!----------------------------------------
+! Fireplace
+!----------------------------------------
+Object fireplace "fireplace" room07
+with
+  name 'brick' 'bricks//p' 'fireplace' 'chimney',
+  description
+  [;
+    print "It's a simple fireplace made of brick and set into the stone wall at the eastern end of the room. ";
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2 && children(self) == 0)
+      rtrue;
+  ],
+  before
+  [;
+    Enter:
+      "You didn't come here to play Santa Claus.";
+    Receive:
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit in the fireplace.";
+  ],
+  size 13,
+has container open static;
+
+!----------------------------------------
+! Ashes
+!----------------------------------------
+Object ashes "ashes" fireplace
+with
+  name 'ash' 'ashes//p' 'remains//p' 'fire',
+  description
+  [;
+    if (wood in nothing && stake in nothing)
+    {
+      move wood to fireplace;
+      "Among the remains of the fire you find a lightly-singed piece of wood that's escaped the flames.";
+    }
+    "It's the remains of a fire that hasn't been lit in recent times. The ashes in the fireplace are cold.";
+  ],
+  before
+  [;
+    Blow:
+      "You blow up a cloud of dust, but nothing more. Those ashes are well and truly extinguished.";
+    Dig, Search:
+      <<Examine self>>;
+    Pull, Push, Take, Transfer, Turn:
+      "Your suit is already grimy from climbing through that window. I think the ashes can stay where they are.";
+  ],
+has pluralname;
+
+!----------------------------------------
+! Piece of wood
+!----------------------------------------
+Object wood "piece of wood"
+with
+  parse_name
+  [ nw;
+    nw = NextWord();
+    if (nw == 'piece')
+      if (NextWord() == 'of' && NextWord() == 'wood' or 'timber')
+        return 3;
+      else
+        return 1;
+    if (nw == 'wood' or 'timber')
+      return 1;
+    return 0;
+  ],
+  description "It's about 40 mm square, half a metre long and blunt at both ends.",
+  before
+  [;
+    Attack:
+      if (TestScope(vampire) && second == hammer)
+        <<Attack vampire>>;
+    Burn:
+      if (second == nothing && candle in player && candle has light)
+      {
+        print "(with the lit candle)^";
+        <<Burn self candle>>;
+      }
+      if (second == nothing && match in player && match has light)
+      {
+        print "(with the lit match)^";
+        <<Burn self match>>;
+      }
+      if (second == nothing)
+        "You'll have to tell me what to light it with.";
+      if (second ~= candle or match)
+        "You can't light the piece of wood with ", (ThatOrThose)second, ".";
+      if (second hasnt light)
+        print_ret (The)second, " isn't lit.";
+      "The flame of ", (the)second, " is not strong enough to light the piece of wood.";
+    Push:
+      if (TestScope(vampire))
+        <<Attack vampire self>>;
+    Sharpen:
+      if (self notin player)
+        "You need to be holding the wood to sharpen it.";
+      if (second == nothing && knife in player)
+      {
+        print "(with the knife)^";
+        <<Sharpen self knife>>;
+      }
+      if (second == nothing)
+        "You'll have to tell me what to sharpen it with.";
+      if (second == grinding_wheel)
+        "That's for sharpening metal objects. It only mangles and burns the fibres with wood.";
+      if (~~TestScope(second))
+        "You can't see that here.";
+      if (second ~= knife)
+        "You can't sharpen the wood with that.";
+      if (knife hasnt general)
+        "You would if you could, but the knife is blunt.";
+      remove self;
+      move stake to player;
+      update_moved = true;
+      "You sharpen the wood with the knife to make a stake.";
+  ],
+  size 13,
+has scored;
+
+!----------------------------------------
+! Sharpened stake
+!----------------------------------------
+Object stake "sharpened stake"
+with
+  name 'sharpened' 'stake',
+  description
+  [;
+    print "It's about 40 mm square and half a metre long and has been carefully sharpened at one end.";
+    if (notebook has general && vampire notin nothing)
+      print " It's one of the four things you'll need to defeat the vampire.";
+    "";
+  ],
+  before
+  [;
+    Attack:
+      if (TestScope(vampire) && second == self)
+        <<Attack vampire>>;
+    Burn:
+      if (second == nothing && candle in player && candle has light)
+      {
+        print "(with the lit candle)^";
+        <<Burn self candle>>;
+      }
+      if (second == nothing && match in player && match has light)
+      {
+        print "(with the lit match)^";
+        <<Burn self match>>;
+      }
+      if (second == nothing)
+        "You'll have to tell me what to light it with.";
+      if (second ~= candle or match)
+        "You can't light the stake with ", (ThatOrThose)second, ".";
+      if (second hasnt light)
+        print_ret (The)second, " isn't lit.";
+      "The flame of ", (the)second, " is not strong enough to light the stake.";
+    Push:
+      if (TestScope(vampire))
+        <<Attack vampire self>>;
+    Sharpen:
+      "It's already quite sharp.";
+  ],
+  size 13,
+has scored;
+
+!----------------------------------------
+! Poker
+!----------------------------------------
+Object poker "poker" room07
+with
+  name 'toledo' 'steel' 'poker',
+  description "It's made from the strongest Toledo steel and is used to poke the fire.",
+  before
+  [;
+    Push:
+      if (TestScope(vampire))
+        <<Attack vampire self>>;
+  ],
+  size 12,
+has;
+
+!----------------------------------------
+! Dining table
+!----------------------------------------
+Object dining_table "dining table" room07
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'big' or 'large' or 'mahogany' or 'dining' or 'table')
+      count++;
+    return count;
+  ],
+  description
+  [;
+    print "It's a large mahogany dining table located in the centre of the room. There's a dining chair at each end of the table. ";
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2 && children(self) == 0)
+      rtrue;
+  ],
+  before
+  [;
+    Enter, Go:
+      if (verb_word == 'lie')
+        "I'm sure a bed would be more comfortable.";
+      if (verb_word == 'sit')
+        "If you want to sit down, try one of the chairs.";
+      if (verb_word == 'stand')
+        "There's no need to stand on the table.";
+      "You can't get on the table.";
+    Pull, Push, Transfer, Turn:
+      "It's too heavy.";
+    Receive:
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit on the dining table.";
+    Take:
+      "That's far too awkward to drag around with you.";
+  ],
+  size 13,
+has enterable static supporter;
+
+!----------------------------------------
+! Dining chairs
+!----------------------------------------
+Object chairs "dining chairs" room07
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'old' or 'oak' or 'wheel' or 'back' or 'dining' or 'chair' or 'chairs//p')
+      count++;
+    return count;
+  ],
+  description
+  [;
+    print "They're old oak wheel back dining chairs located at each end of the dining table. ";
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2 && children(self) == 0)
+      rtrue;
+  ],
+  before
+  [;
+    Enter:
+      if (verb_word == 'lie')
+        "The dining chairs are too small for lying on.";
+      if (verb_word == 'stand')
+        "There's no need to stand on the dining chairs.";
+      "You sit on one of the chairs, decide that it's not very comfortable, and stand up again.";
+    Pull, Push, Transfer, Turn:
+      "They squeak on the floor.";
+    Receive:
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit on either of the dining chairs.";
+    Take:
+      "You have no need for any dining chairs.";
+  ],
+  size 11,
+has enterable pluralname static supporter;
+
+!========================================
+! Room 8: Staircase
+!========================================
+Object room08 "Staircase"
+with
+  description "You're at a staircase at the northern end of the passageway. The staircase leads up and down to other levels of the castle. A cold wind blows down from the top of the stairs. There are also exits to the east and west.",
+  s_to room05,
+  e_to room10,
+  w_to room09,
+  u_to room12,
+  d_to room11,
+  before
+  [;
+    Hint:
+      if (room11 hasnt visited && (match in player || candle in player))
+        "Protect a flame^In the wind^With an object^Canned or tinned";
+      if (vampire notin nothing)
+        "Don't waste time^In the stair^Evil beckons^In its lair";
+  ],
+has light;
+
+!----------------------------------------
+! Stairs
+!----------------------------------------
+Object stairs "stairs"
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'spiral' or 'step' or 'steps//p' or 'stair' or 'stairs//p' or 'staircase')
+      count++;
+    return count;
+  ],
+  description
+  [;
+    print "It's a dusty spiral staircase with steps going ";
+    if (location == room11)
+      "up.";
+    if (location == room12)
+      "down.";
+    "up and down.";
+  ],
+  before
+  [;
+    Climb, Enter:
+      if (self in room11)
+        <<Go FAKE_U_OBJ>>;
+      if (self in room12)
+        <<Go FAKE_D_OBJ>>;
+      "As the stairs go both up and down, you'll have to tell me which direction to go.";
+  ],
+  found_in room08 room11 room12,
+has scenery;
+
+!========================================
+! Room 9: Bedroom
+!========================================
+Object room09 "Bedroom"
+with
+  description "You're in a medium-sized bedroom that has a distinctly feminine touch. The stone walls have been plastered and painted in a soft lilac colour. The exit is to the east.",
+  e_to room08,
+  out_to room08,
+  before
+  [;
+    Hint:
+      if (small_key in nothing)
+        "Looking here^Is no feat^If you just^Search the sheet";
+      if (wardrobe hasnt open)
+        "Open wardrobe^It's no trap^If you're tired^Take a nap";
+    Sleep:
+      if (player in bed && vampire notin nothing)
+        "You close your eyes and doze off. You dream of a beautiful woman with a hook nose who leans over you as you sleep. She caresses your neck and smiles. As she does so, she reveals two sharp fangs that come closer to you. Closer...closer... You wake with a sudden jerk and find yourself in a lather of sweat.";
+      if (player in bed)
+        "You close your eyes and doze off. You dream of the vampire woman and see that she is now at peace. When you wake up, you feel refreshed.";
+      "You can't sleep on your feet. Perhaps you should lie on the bed.";
+    Smell:
+      if (noun == nothing)
+        "There's a very faint hint of perfume mingled with the mustiness of the unwashed sheets.";
+  ],
+has light;
+
+!----------------------------------------
+! Bedroom
+!----------------------------------------
+Object "bedroom" room09
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'bedroom' or 'outline' or 'nail' or 'hole' or 'room')
+      count++;
+    return count;
+  ],
+  description "Upon closer examination, you see the faint outline of a cross and a nail hole where a crucifix was once mounted on the western wall above the bed.",
+has scenery;
+
+!----------------------------------------
+! Wardrobe
+!----------------------------------------
+Object wardrobe "wardrobe" room09
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'wardrobe' or 'door' or 'frame' or 'frames//p' or 'mirror' or 'mirrors//p')
+      count++;
+    return count;
+  ],
+  description
+  [;
+    print "It's a simple wardrobe with elaborately carved door frames. It looks like the frames once held mirrors, but the mirrors have been removed. ";
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2 && (self hasnt open || children(self) == 0))
+      rtrue;
+  ],
+  before
+  [;
+    Lift, Pull, Push, Take, Turn:
+     "It's too heavy.";
+    Receive:
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit in the wardrobe.";
+  ],
+  size 13,
+has container openable static;
+
+!----------------------------------------
+! Woman's clothing
+!----------------------------------------
+Object "woman's clothing" wardrobe
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'woman^s' or 'women^s//p' or 'clothes//p' or 'clothing' or 'coat' or 'coats//p' or 'dress' or 'dresses//p' or 'fur')
+      count++;
+    return count;
+  ],
+  description "There's a small selection of coats and dresses, all made from thick materials and some lined with fur to protect against the cold weather in this part of the Carpathian Mountains.",
+  before
+  [;
+    Lift, Pull, Push, Search, Transfer, Turn:
+      "You move the clothing around, but don't find anything of interest.";
+    Take:
+      "There are too many garments to carry around with you and they're probably not your size, anyway.";
+  ],
+has clothing static;
+
+!----------------------------------------
+! Silver crucifix
+!----------------------------------------
+Object crucifix "silver crucifix" wardrobe
+with
+  name 'silver' 'crucifix' 'cross',
+  description
+  [;
+    print "It's a small silver crucifix with an ornate corpus.";
+    if (notebook has general && vampire notin nothing)
+      print " It's one of the four things you'll need to defeat the vampire.";
+    "";
+  ],
+  before
+  [;
+    Wear:
+      "This is a large crucifix off a wall, not a small crucifix that you'd wear around your neck. It doesn't have a chain, so you can't wear it.";
+  ],
+  add_to_scope corpus,
+  size 9,
+has scored;
+
+!----------------------------------------
+! Corpus
+!----------------------------------------
+Object corpus "corpus"
+with
+  name 'miniature' 'corpus' 'jesus',
+  description "It's a miniature Jesus nailed to the cross.",
+  before
+  [;
+    Drop, Take:
+      "That's part of the crucifix.";
+  ],
+has scenery;
+
+!----------------------------------------
+! Bed
+!----------------------------------------
+Object bed "bed" room09
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'dark' or 'chocolate-coloured' or 'chocolate-colored' or 'chocolate' or 'coloured' or 'colored' or 'timber' or 'bed' or 'spiral' or 'bedpost' or 'bedposts//p')
+      count++;
+    return count;
+  ],
+  description
+  [;
+    print "It's made from a dark, chocolate-coloured timber with spiral bedposts. ";
+    <Search self>;
+    if (small_key in nothing)
+      ShowTutorial(TUT_EXAMINE_BED);
+    rtrue;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2 && children(self) == 0)
+      rtrue;
+  ],
+  react_before
+  [;
+    Jump:
+      if (player in self)
+        "It's a bit hard to jump when you're lying down.";
+  ],
+  before
+  [;
+    Enter, Go:
+      if (verb_word == 'sit')
+        "You'd probably be more comfortable lying on it.";
+      if (verb_word == 'stand')
+        "There's no need to stand on the bed.";
+    LookUnder:
+      "If you were expecting to find a vampire hiding under the bed, I'm sorry to disappoint you. There's nothing but dust.";
+    Lift, Pull, Push, Transfer, Turn:
+      "It's too heavy.";
+    Receive:
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit on the bed.";
+    Take:
+      "You think about taking the bed, but decide against it when you realise that it would probably give you a hernia.";
+  ],
+  after
+  [;
+    Enter, Go:
+      "You lie on the bed.";
+    Exit:
+      "You get off the bed.";
+  ],
+  size 13,
+has clothing enterable static supporter;
+
+!----------------------------------------
+! Sheets
+!----------------------------------------
+Object sheets "sheets" bed
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'ruffled' or 'linen' or 'sheet' or 'sheets//p' or 'lace' or 'trim')
+      count++;
+    return count;
+  ],
+  description
+  [;
+    if (small_key in nothing)
+    {
+      move small_key to bed;
+      "You find a small key amongst the sheets.";
+    }
+    "They're linen sheets with lace trim that are starting to yellow with age.";
+  ],
+  before
+  [;
+    Burn:
+      if (second == nothing && candle in player && candle has light)
+      {
+        print "(with the lit candle)^";
+        <<Burn self candle>>;
+      }
+      if (second == nothing && match in player && match has light)
+      {
+        print "(with the lit match)^";
+        <<Burn self match>>;
+      }
+      if (second == nothing)
+        "You'll have to tell me what to light it with.";
+      if (second ~= candle or match)
+        "You can't light the sheets with ", (ThatOrThose)second, ".";
+      if (second hasnt light)
+        print_ret (The)second, " isn't lit.";
+      "Are you crazy? If you start a fire, you could burn down the castle.";
+    Insert, PutOn:
+      if (second == opening && opening in location)
+        <<Close opening self>>;
+    Search:
+      <<Examine self>>;
+    Smell:
+      "They smell very musty.";
+    Wear:
+      if (self notin player)
+        "You don't have the sheets.";
+      "You drape the sheets over your head and say, ~Boo!~ You then remove them again because: (a) you can't see where you're going, (b) you feel like a goose, and (c) you're here to deal with a vampire, not play Halloween dress-ups.";
+  ],
+  after
+  [;
+    Take:
+      if (self hasnt moved)
+      {
+        print "This is no time to be thinking about doing the laundry, but, if you insist.";
+        if (small_key in nothing)
+        {
+          move small_key to location;
+          print " You hear a metallic clink as something falls to the floor.";
+        }
+        "";
+      }
+  ],
+  size 13,
+has pluralname;
+
+!----------------------------------------
+! Small key
+!----------------------------------------
+Object small_key "small key" !room09
+with
+  name 'small' 'key',
+  description "It looks like it would open a closet or wardrobe or something similar.",
+  size 4,
+has scored;
+
+!========================================
+! Room 10: Library
+!========================================
+Object room10 "Library"
+with
+  description "You're in the castle library. It's a cosy room with books lining the northern wall and lots of hunting trophies and other ornaments hanging from the other walls. The exit is to the west.",
+  w_to room08,
+  out_to room08,
+  before
+  [;
+    Hint:
+      if (candle in nothing)
+        "Find a light^If you're able^Find it on^The reading table";
+      if (vampire notin nothing)
+        "Lots of books^Pay no heed^This is no^Time to read";
+  ],
+has light;
+
+!----------------------------------------
+! Library
+!----------------------------------------
+Object "library" room10
+with
+  name 'library' 'room',
+  description "It appears to be full of interesting books, but you don't have time to read them.",
+has scenery;
+
+!----------------------------------------
+! Trophies
+!----------------------------------------
+Object "trophies" room10
+with
+  name 'hunting' 'trophy' 'trophies//p',
+  description "The count must have been quite a horseman to have acquired so many trophies. Maybe they're not all his. Some are engraved with 'Contesa Elga'.",
+  before
+  [;
+    Take:
+      "Leave them alone. They're not yours to take.";
+  ],
+has pluralname scenery;
+
+!----------------------------------------
+! Ornaments
+!----------------------------------------
+Object "ornaments" room10
+with
+  name 'ornament' 'ornaments//p',
+  description "They're just decorative ornaments of no significance.",
+  before
+  [;
+    Take:
+      "Leave them alone. They're not yours to take.";
+  ],
+has pluralname scenery;
+
+!----------------------------------------
+! Reading table
+!----------------------------------------
+Object reading_table "reading table" room10
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'small' or 'circular' or 'dark' or 'timber' or 'reading' or 'table')
+      count++;
+    return count;
+  ],
+  description
+  [;
+    if (candle in nothing)
+      move candle to self;
+    print "It's a small circular table made from dark timber. ";
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2 && children(self) == 0)
+      rtrue;
+  ],
+  before
+  [;
+    Enter, Go:
+      if (verb_word == 'lie')
+        "It's too small to lie on.";
+      if (verb_word == 'sit')
+        "You'd probably be more comfortable sitting on the lounge chair.";
+      if (verb_word == 'stand')
+        "There's no need to stand on the table.";
+      "You can't get on the table.";
+    Pull, Push, Transfer, Turn:
+      "It squeaks on the floor.";
+    Receive:
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit on the reading table.";
+    Take:
+      "Leave it alone.";
+  ],
+  size 13,
+has enterable static supporter;
+
+!----------------------------------------
+! Candle
+!----------------------------------------
+Object candle "candle"
+with
+  name 'wax' 'candle',
+  description
+  [;
+    print "It's ";
+    if (self has light)
+      print "a lit";
+    else
+      print "an unlit";
+    " wax candle.";
+  ],
+  short_name
+  [;
+    if (self has light)
+      print "lit ";
+  ],
+  invent
+  [;
+    if (inventory_stage == 2)
+      rtrue;
+  ],
+  before
+  [;
+    Burn:
+      if (self has light)
+        "It's already lit.";
+      if (second == nothing && match in player)
+      {
+        print "(with the match)^";
+        <<Burn self match>>;
+      }
+      if (second == nothing)
+        "You'll have to tell me what to light it with.";
+      if (second ~= match)
+        "You can't light the candle with ", (ThatOrThose)second, ".";
+      if (match in player && match hasnt light)
+        "You'll have to light the match first.";
+      give self light;
+      StartDaemon(self);
+      "You light the candle with the match.";
+    Extinguish:
+      if (self hasnt light)
+        "It's already extinguished.";
+      give self ~light;
+      "You blow out the candle.";
+  ],
+  daemon
+  [;
+    if (location == room08 or room12 && TestScope(self))
+    {
+      if (self in can)
+        "^The candle's flame flickers, but the tin can protects it from the wind.";
+      give self ~light;
+      StopDaemon(self);
+      print "^The wind blows the candle out. You'll need to protect it from the wind.^";
+      ShowTutorial(TUT_CANDLE_EXTINGUISHED);
+      rtrue;
+    }
+  ],
+  size 6,
+has scored;
+
+!----------------------------------------
+! Lounge chair
+!----------------------------------------
+Object chair "lounge chair" room10
+with
+  name 'comfortable' 'lounge' 'chair',
+  description
+  [;
+    print "It's a comfortable lounge chair upholstered in a claret-coloured velvet. ";
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2 && children(self) == 0)
+      rtrue;
+  ],
+  before
+  [;
+    Enter:
+      if (verb_word == 'lie')
+        "It's too confined to lie on.";
+      if (verb_word == 'stand')
+        "There's no need to stand on the lounge chair.";
+      "You sit in the lounge chair and take a short rest, then get up again.";
+    Pull, Push, Take, Transfer, Turn:
+      "It's too heavy.";
+    Receive:
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit on the lounge chair.";
+  ],
+  size 11,
+has enterable static supporter;
+
+!----------------------------------------
+! Books
+!----------------------------------------
+Object books "books" room10
+with
+  name 'book' 'books//p',
+  description "There are tons of books here, some in English or German, but mostly in Romanian. You don't have time to read any of them now.",
+  before
+  [;
+    Open, Read:
+      "This is not the time to be reading books.";
+    Take:
+      "You can't lug all the books around with you.";
+  ],
+has pluralname scenery;
+
+!========================================
+! Room 11: Cellar
+!========================================
+Object room11 "Cellar"
+with
+  description "It's very cold in this small damp cellar. You can't see anything noteworthy in the dim light apart from the stairs going up to the main part of the castle.",
+  u_to room08,
+  out_to room08,
+  before
+  [;
+    Hint:
+      if (location == thedark)
+        "Light a match^If you will^Or a candle^Better still";
+      if (barrel hasnt open)
+        "You can do it^If you try^Metal poker^Prod or pry";
+      if (knife hasnt general)
+        "Sharpen knife^If it's blunt^With a grind^And a grunt";
+    Smell:
+      if (noun == nothing)
+        "The cellar has a musty smell from the dampness and lack of air circulation down here.";
+  ],
+has scored;
+
+!----------------------------------------
+! Cellar
+!----------------------------------------
+Object "cellar" room11
+with
+  name 'basement' 'damp' 'dirt' 'cellar',
+  description "You can't see much in the dim light, apart from the barrel and the grinding wheel.",
+has scenery;
+
+!----------------------------------------
+! Grinding wheel
+!----------------------------------------
+Object grinding_wheel "grinding wheel" room11
+with
+  name 'grinding' 'stone' 'wheel',
+  description "It's a grinding wheel used to sharpen knives and farming implements.",
+  before
+  [;
+    Take:
+      "It's too heavy to get up the stairs.";
+  ],
+has static;
+
+!----------------------------------------
+! Barrel
+!----------------------------------------
+Object barrel "barrel" room11
+with
+  name 'old' 'coopered' 'wine' 'barrel',
+  description
+  [;
+    print "It looks like an old coopered wine barrel, but it's not. ";
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2 && (self hasnt open || children(self) == 0))
+      rtrue;
+  ],
+  before
+  [;
+    Close:
+      if (self has open)
+        "Now that you've pried it open, you won't be able to close it again.";
+    Open:
+      if (self hasnt open)
+        "You try to open it, but you don't have the strength. You'll need to pry it open with something.";
+    Pry:
+      if (second == nothing && poker in player)
+      {
+        print "(with the poker)^";
+        <<Pry self poker>>;
+      }
+      if (second == nothing)
+        "You'll have to tell me what to pry it open with.";
+      if (second ~= poker)
+        "You'll need something stronger to pry it open.";
+      give self open;
+      score = score + 5;
+      print "Crack! You manage to pry it open with the poker. ";
+      <<Search self>>;
+    Pull, Push, Transfer, Turn:
+      "You can barely move it.";
+    Receive:
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit in the barrel.";
+    Take:
+      "It's too heavy to get up the stairs.";
+  ],
+  size 13,
+has container openable static;
+
+!----------------------------------------
+! Hammer
+!----------------------------------------
+Object hammer "hammer" barrel
+with
+  name 'hammer',
+  description
+  [;
+    print "It's a club hammer, similar to a small sledge hammer.";
+    if (notebook has general && vampire notin nothing)
+      print " It's one of the four things you'll need to defeat the vampire.";
+    "";
+  ],
+  size 11,
+has scored;
+
+!========================================
+! Room 12: Top landing
+!========================================
+Object room12 "Top Landing"
+with
+  description "You're on the top floor of the castle. There's an opening in the wall like a window without any glass. That explains why it's so cold in the castle. Apart from the stairs going down, there's a wooden door to the west.",
+  w_to wooden_door,
+  d_to room08,
+  in_to wooden_door,
+  before
+  [;
+    Hint:
+      if (board in nothing && gap has absent)
+        "If you want^To see some more^Try examine^On the door";
+      if (board in nothing)
+        "If you want^To see inside^Examine gap^Should be tried";
+      if (board has scenery)
+        "Time to think^Do not nap^Put the knife^In the gap";
+  ],
+has light;
+
+!----------------------------------------
+! Top landing
+!----------------------------------------
+Object "top landing" room12
+with
+  name 'top' 'landing',
+  description "A cold wind blows in through the opening in the outside wall of the castle.",
+has scenery;
+
+!----------------------------------------
+! Opening
+!----------------------------------------
+Object opening "opening" room12
+with
+  name 'opening' 'window',
+  description "It provides a majestic view over the eastern slopes of the Carpathian Mountains.",
+  before
+  [;
+    Close:
+      if (second == nothing && sheets in player)
+      {
+        print "(with the sheets)^";
+        <<Close self sheets>>;
+      }
+      if (second == nothing)
+        "You'll have to tell me what to cover it with.";
+      if (second ~= sheets)
+        print_ret (The)second, " ", (IsOrAre)second, " not big enough to cover the opening.";
+      "The sheets flap about in the wind as you try to cover the opening. You can't find any way to attach them to the wall, so you give up on that idea.";
+    Enter, Exit, Go:
+      "You take a look at the long drop to the ground below and think better of it.";
+  ],
+has enterable scenery;
+
+!----------------------------------------
+! Carpathian Mountains
+!----------------------------------------
+Object "Carpathian Mountains" room12
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'majestic' or 'view' or 'eastern' or 'slope' or 'slopes//p' or 'carpathian' or 'mountain' or 'mountains//p' or 'violet' or 'blanket' or 'fragrant' or 'wild' or 'orchid' or 'orchids//p')
+      count++;
+    return count;
+  ],
+  description "It's a wonderful view, that's for sure. The eastern slopes of the mountains are covered in a violet blanket of fragrant wild orchids. It would make a great picture postcard if they printed postcards in colour.",
+has scenery;
+
+!----------------------------------------
+! Wooden door
+!----------------------------------------
+Object wooden_door "wooden door"
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'wood' or 'wooden' or 'door' or 'iron' or 'rivet' or 'rivets//p')
+      count++;
+    return count;
+  ],
+  description
+  [;
+    if (gap in nothing)
+    {
+      give gap ~absent;
+      MoveFloatingObjects();
+    }
+    print "It's heavy wooden door with ";
+    if (self in room12)
+      print "iron rivets where the keyhole should be.";
+    else
+      print "an iron bracket used to hold the board that locks the door.";
+    print " The door is currently ";
+    if (self has open)
+      "open.";
+    else
+      "closed, but you can see a narrow gap between the door and the stone wall.";
+  ],
+  door_dir
+  [;
+    if (self in room12)
+      return w_to;
+    else
+      return e_to;
+  ],
+  door_to
+  [;
+    if (self in room12)
+      return room13;
+    else
+      return room12;
+  ],
+  before
+  [;
+    Lock:
+      if (self has locked)
+        "It's already locked.";
+      "It doesn't have a keyhole.";
+    Unlock:
+      if (self hasnt locked)
+        "It's already unlocked.";
+      "It doesn't have a keyhole.";
+  ],
+  after
+  [;
+    Open:
+      if (knife in gap)
+      {
+        move knife to location;
+        "As you open the door, the knife clatters to the floor with a noise that would wake the dead.";
+      }
+  ],
+  add_to_scope keyhole,
+  found_in room12 room13,
+has door lockable locked openable scenery;
+
+!----------------------------------------
+! Keyhole
+!----------------------------------------
+Object keyhole "keyhole"
+with
+  name 'keyhole',
+  description "There isn't one.",
+  before
+  [;
+    Pull, Push, Take, Transfer, Turn:
+      <<Examine self>>;
+  ],
+has scenery;
+
+!----------------------------------------
+! Narrow gap
+!----------------------------------------
+Object gap "narrow gap"
+with
+  name 'narrow' 'gap' 'crack' 'slot',
+  description
+  [;
+    if (board in nothing)
+      move board to location;
+    if (wooden_door has open)
+      "The gap is no longer there now that the door is open.";
+    print "You carefully peer through the gap to see what's on the other side. ";
+    if (location == room12 && board has scenery)
+      print "Midway up the gap, you can see a board locking the door. If you can fit something in the gap, you might be able to lift it up. ";
+    else
+      print "You see nothing special. ";
+    <<Search self>>;
+  ],
+  before
+  [;
+    if (wooden_door has open)
+      "The gap is no longer there now that the door is open.";
+    Pull, Push, Take, Transfer, Turn:
+      "The gap is nothing more than air. You can't very well move it.";
+    Receive:
+      if (noun == match)
+        "The match is too small to be of any use in the gap.";
+      if (noun ~= knife)
+        print_ret (The)noun, " won't fit in the gap.";
+  ],
+  found_in room12 room13,
+  size 1,
+has absent container open scenery;
+
+!----------------------------------------
+! Board
+!----------------------------------------
+Object board "board"
+with
+  name 'wood' 'wooden' 'board',
+  description
+  [;
+    if (self has scenery)
+      "You can't see it clearly through the gap.";
+    "It's a solid wooden board about 100 mm by 200 mm and half a metre long.";
+  ],
+  before
+  [;
+    Burn:
+      if (second == nothing && candle in player && candle has light)
+      {
+        print "(with the lit candle)^";
+        <<Burn self candle>>;
+      }
+      if (second == nothing && match in player && match has light)
+      {
+        print "(with the lit match)^";
+        <<Burn self match>>;
+      }
+      if (second == nothing)
+        "You'll have to tell me what to light it with.";
+      if (second ~= candle or match)
+        "You can't light the board with ", (ThatOrThose)second, ".";
+      if (second hasnt light)
+        print_ret (The)second, " isn't lit.";
+      "The flame of ", (the)second, " is not strong enough to light the board.";
+    Lift:
+      if (self hasnt scenery)
+        rfalse;
+      if (knife notin gap)
+        "Your fingers are too fat to fit through the gap.";
+      if (second == nothing && knife in gap)
+      {
+        print "(with the knife)^";
+        <<Lift self knife>>;
+      }
+      if (knife in gap)
+      {
+        give board ~scenery;
+        move board to room13;
+        give wooden_door ~locked;
+        score = score + 5;
+        "You carefully lift the board with the knife. After lifting it about five centimetres, you feel it start to totter, then hear it clatter to the floor on the other side of the door.";
+      }
+    Pull, Push, Take, Transfer, Turn:
+      if (self has scenery)
+        "You can't reach it. It's on the other side of the door. You need to lift it up somehow.";
+    Insert, PutOn:
+      if (second == opening)
+        "You would need a hundred boards if you were thinking of blocking the opening.";
+    Sharpen:
+      if (self has scenery)
+        rfalse;
+      if (self notin player)
+        "You need to be holding the board to sharpen it.";
+      if (second == nothing && knife in player)
+      {
+        print "(with the knife)^";
+        <<Sharpen self knife>>;
+      }
+      if (second == nothing)
+        "You'll have to tell me what to sharpen it with.";
+      if (second == grinding_wheel)
+        "That's for sharpening metal objects. It only mangles and burns the fibres with wood.";
+      if (~~TestScope(second))
+        "You can't see that here.";
+      if (second ~= knife)
+        "You can't sharpen the board with that.";
+      if (knife hasnt general)
+        "You would if you could, but the knife is blunt.";
+      "You try to sharpen the board, but it must be hardwood and the knife barely makes a dent.";
+  ],
+  size 13,
+has scenery;
+
+!========================================
+! Room 13: Vampire's room
+!========================================
+Object room13 "Vampire's Room"
+with
+  description "You're in a bare stone room with no windows whatsoever. There's an altar in the centre of the room with a coffin on top of it. The only exit is via the wooden door to the east.",
+  e_to wooden_door,
+  out_to wooden_door,
+  before
+  [;
+    Hint:
+      if (coffin hasnt open)
+        "Protect yourself^From a loss^With the plant^And the cross";
+      if (vampire notin nothing)
+        "Killing evil^Piece of cake^With a hammer^And a stake";
+    Smell:
+      if (noun == nothing)
+        "This room exudes a pungent smell like that of turned soil and decay.";
+  ],
+has light;
+
+!----------------------------------------
+! Vampire's room
+!----------------------------------------
+Object "vampire's room" room13
+with
+  name 'vampire^s' 'bare' 'room' 'lir',
+  description "It's cold and dark and smells very earthy.",
+has scenery;
+
+!----------------------------------------
+! Bracket
+!----------------------------------------
+Object "brackets" room13
+with
+  name 'bracket' 'brackets//p',
+  description "It's the iron brackets that hold the board in place to lock the door from the inside.",
+  invent
+  [;
+    if (inventory_stage == 2)
+      rtrue;
+  ],
+  before
+  [;
+    Receive:
+      if (noun ~= board)
+      {
+        move noun to location;
+        print_ret (The)noun, " falls off the bracket and lands on the floor.";
+      }
+      if (vampire in nothing)
+        "Now that you've killed the vampire, your objective is to get out of the castle, not lock yourself in.";
+      else
+        "Don't be silly. What if the vampire wakes up and you have to make a quick exit?";
+  ],
+has container open scenery;
+
+!----------------------------------------
+! Altar
+!----------------------------------------
+Object altar "altar" room13
+with
+  name 'turkish' 'white' 'marble' 'altar',
+  article "an",
+  description "It looks like it's made from Turkish white marble. There's a coffin sitting on top of it.",
+  before
+  [;
+    Pull, Push, Take, Transfer, Turn:
+      "Not likely. Not while there's a coffin sitting on top of it.";
+  ],
+has scenery;
+
+!----------------------------------------
+! Coffin
+!----------------------------------------
+Object coffin "coffin" room13
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'dark' or 'walnut' or 'coffin' or 'box' or 'brass' or 'fitting' or 'fittings//p')
+      count++;
+    return count;
+  ],
+  description
+  [;
+    print "It's a dark walnut box with brass fittings. ";
+    <<Search self>>;
+  ],
+  invent
+  [;
+    if (inventory_stage == 2 && self hasnt open)
+      rtrue;
+  ],
+  before
+  [;
+    Climb, Enter, Go:
+      if (vampire notin nothing)
+        "The coffin is large, but not large enough to fit two people.";
+      "Do you really want to jump into a coffin full of smelly soil that was previously occupied by a vampire? No, of course not.";
+    Open:
+      if (garlic notin player && crucifix notin player)
+        "You don't dare open the coffin until you have something to protect you from the terror within.";
+      if (garlic in player && crucifix notin player)
+          "The string of garlic might protect you, but you don't feel that it's enough. You don't dare open the coffin until you're fully protected from the terror within.";
+      if (garlic notin player && crucifix in player)
+        "The silver crucifix might protect you, but you don't feel that it's enough. You don't dare open the coffin until you're fully protected from the terror within.";
+    Receive:
+      if (vampire in self)
+        "Some inexplicable force prevents you from putting anything in the coffin.";
+      if (noun.size > self.size)
+        print_ret (The)noun, " won't fit in the coffin.";
+    Pull, Push, Take, Transfer, Turn:
+      "You recall that there are normally six pallbearers to carry a coffin. You're not likely to move it by yourself.";
+  ],
+  after
+  [;
+    Open:
+      if (vampire in self)
+      {
+        print "You feel confident opening the coffin, as you have the garlic and crucifix to protect you. When you open it, you are confronted by a hideous vampire. ";
+        if (self hasnt general)
+        {
+          give self general;
+          print "Holy mackeral! That's not the count. It's a woman! ";
+        }
+        "Fortunately for you, she's asleep.";
+      }
+  ],
+  size 13,
+has container enterable openable static;
+
+!----------------------------------------
+! Vampire
+!----------------------------------------
+Object vampire "vampire" coffin
+with
+  parse_name
+  [ count;
+    count = 0;
+    while (NextWord() == 'vampire' or 'strigoi' or 'female' or 'woman' or 'lady')
+      count++;
+    return count;
+  ],
+  description
+  [;
+    print "It's a vampire clutching a large key. She has a hook nose and an evil appearance.";
+    if (portrait has general)
+      print " She looks like the woman in the portrait.";
+    "";
+  ],
+  before
+  [;
+    PutOn:
+      <<Give noun self>>;
+    Smell:
+      "She smells of earth and decay.";
+    Take:
+      "You're trying to kill the vampire, not take it home as a souvenir.";
+  ],
+  life
+  [;
+    Attack:
+      if (second == nothing && stake in player)
+      {
+        print "(with the stake)^";
+        <<Attack self stake>>;
+      }
+      if (second == nothing && wood in player)
+      {
+        print "(with the piece of wood)^";
+        <<Attack self wood>>;
+      }
+      if (second == nothing && poker in player)
+      {
+        print "(with the poker)^";
+        <<Attack self poker>>;
+      }
+      if (second == nothing && knife in player)
+      {
+        print "(with the knife)^";
+        <<Attack self knife>>;
+      }
+      if (second == nothing)
+        "You'll have to tell me what to kill it with.";
+      if (second ~= stake or wood or poker or knife)
+        "You can't kill a vampire with ",(ThatOrThose)second, ".";
+      if (second notin player)
+        "You don't have ", (the)second, ".";
+      if (second == wood)
+        "You try to drive the piece of wood into the vampire's heart, but it's too blunt. You need to sharpen it.";
+      if (second == poker or knife)
+        "You can't kill a vampire with a metal object. It needs to be a wooden stake.";
+      if (second == stake && hammer notin player)
+        "You try pushing the stake through her chest, but you don't have the strength to push it through the sternum. You'll need a hammer.";
+      remove self;
+      move large_key to coffin;
+      StopDaemon(room01);
+      score = score + 10;
+      "You start your horrible task. Using repeated blows of the hammer, you drive the stake into the vampire's chest. With a final, brutal blow, the stake pierces her heart. The vampire wakes. There's a hideous cry of agony and her body arches towards you, as if reaching for your throat. Then, suddenly, the vampire crumbles into dust, leaving only the large key.";
+    Give:
+      "The vampire is asleep, so you can't give her anything.";
+    Kiss:
+      "You are repulsed by what she represents and what she has done, so you think better of it. Kissing a vampire could be the kiss of death.";
+    Show:
+      "The vampire is asleep, so you can't show her anything.";
+    WakeOther:
+      "You reach into the coffin to wake the vampire, but start shaking in fear and change your mind.";
+  ],
+has animate female transparent;
+
+!----------------------------------------
+! Nose
+!----------------------------------------
+Object "nose" vampire
+with
+  name 'hook' 'nose',
+  description "The vampire has a hooked nose, but that is common amongst the people in this part of Romania.",
+  before
+  [;
+    Take:
+      "That's firmly attached to the vampire.";
+  ],
+has scenery;
+
+!----------------------------------------
+! Heart
+!----------------------------------------
+Object heart "heart" vampire
+with
+  name 'heart',
+  description "You can't see the vampire's heart, but you imagine it to be as cold as ice.",
+  before
+  [;
+    Attack:
+      <<Attack vampire>>;
+  ],
+has scenery;
+
+!----------------------------------------
+! Large key
+!----------------------------------------
+Object large_key "large key" vampire
+with
+  name 'large' 'key',
+  description "It looks like a door key.",
+  before
+  [;
+    Take:
+      if (self in vampire)
+        "The vampire is holding the key in a vice-like grip. You can't pry it from her cold fingers.";
+  ],
+  size 5,
+has;
+
+!----------------------------------------
+! Soil
+!----------------------------------------
+Object "soil" coffin
+with
+  name 'soil' 'earth' 'dirt',
+  article "some",
+  description " The bottom of the coffin is filled with soil. That would explain the pungent earthy smell in here.",
+  before
+  [;
+    Smell:
+      "It smells like freshly-turned earth.";
+    Take:
+      "You would need a bucket and spade if you're thinking of taking up gardening.";
+    Turn:
+      "If you want to turn the soil, you should take up farming, not vampire hunting.";
+  ],
+has static;
+
+!========================================
+! Print rules
+!========================================
+[ consultWord word i;
+  for (i=0:i<WordLength(word):i++)
+    print (char)LowerCase(WordAddress(word)->i);
+];
+
+[ DoesntOrDont obj;
+  if (obj has pluralname)
+    print "don't";
+  else
+    print "doesn't";
+];
+
+[ firstConsultWord word i;
+  for (i=0:i<WordLength(word):i++)
+    if (i == 0)
+      print (char)UpperCase(WordAddress(word)->i);
+    else
+      print (char)LowerCase(WordAddress(word)->i);
+];
+
+[ italic text;
+#Ifv5;
+  style underline;
+#Endif;
+  print (string)text;
+#Ifv5;
+  style roman;
+#Endif;
+];
+
+!========================================
+! Other routines
+!========================================
+[ AtCapacity i count;
+  objectloop (i in player && i hasnt worn)
+    count++;
+  if (count >= MAX_CARRIED)
+    rtrue;
+  rfalse;
+];
+
+[ LowerCase c; ! for ZSCII matching ISO 8859-1
+  switch (c)
+  {
+    'A' to 'Z': c = c + 32;
+    202, 204, 212, 214, 221: c--;
+    217, 218: c = c - 2;
+    158 to 160, 167, 168, 208 to 210: c = c - 3;
+    186 to 190, 196 to 200: c = c - 5 ;
+    175 to 180: c = c - 6;
+  }
+  return c;
+];
+
+[ PlayerDescription;
+  tutorial_used->TUT_AUTO1 = 1;
+  "Your name is Franz. Your surname doesn't matter. You're a German national with an interest in the occult. Your research has brought you to Romania, where you've developed a reputation as a vampire killer.";
+];
+
+[ ShowTutorial i;
+  if (tutorial && tutorial_used->i == 0)
+  {
+    tutorial_used->i = 1;
+    tutorial_shown = 1;
+    switch (i)
+    {
+      TUT_ENTER_START:
+        tutorial_shown = 0;
+        print_ret (italic)"^[The description above tells you where you are and what you can see. The '>' below is the prompt. You type commands after the prompt. When the location description scrolls off the screen, you can refresh it by typing LOOK (or L). Try it now. Type L after the prompt.]";
+      TUT_AUTO1:
+        print_ret (italic)"^[When you start a new game, it's a good idea to EXAMINE or LOOK AT yourself. EXAMINE can be abbreviated to X. Type X ME.]";
+      TUT_AUTO2:
+        if (tutorial_used->TUT_INVENTORY == 0)
+          print_ret (italic)"^[When you start a new game, it's a good idea to take an inventory to see if you're carrying anything. Type INVENTORY (or I).]";
+      TUT_AUTO3:
+        print_ret (italic)"^[Before you go wandering off, you should identify all the things mentioned in the description and EXAMINE them one at a time, e.g. X CASTLE, X DOOR, X WINDOW and X STABLE. These may provide more detail or important clues. However, if you insist on wandering off, you're now free to do so.]";
+      TUT_AUTO4:
+        print_ret (italic)"^[You can move around using any of the four cardinal compass directions such as GO NORTH (or NORTH), as well as UP and DOWN. These directions can be abbreviated to N, S, E, W, U and D. The location description will usually tell you which directions you can go. You can also use verbs like IN, OUT, CLIMB or ENTER when appropriate.]";
+      TUT_INVENTORY:
+        print_ret (italic)"^[You can take a closer look at anything you're carrying or wearing using EXAMINE (or X). Type X SUIT.]";
+      TUT_EXAMINE_SUIT:
+        print_ret (italic)"^[Every time you discover something new, you should EXAMINE it to see if it reveals any more details or any clues. Type X POCKET.]";
+      TUT_EXAMINE_POCKET:
+        print_ret (italic)"^[You found something. Type X NOTEBOOK.]";
+      TUT_EXAMINE_NOTEBOOK_IN_POCKET:
+        print_ret (italic)"^[Hmm, that makes sense. You can get objects using GET or TAKE. Type GET NOTEBOOK to take it out of your pocket.]";
+      TUT_TAKE_NOTEBOOK_FROM_POCKET:
+        print_ret (italic)"^[Now you can EXAMINE it. Type X NOTEBOOK.]";
+      TUT_EXAMINE_NOTEBOOK:
+        print_ret (italic)"^[A response will sometimes hint at something you should do. In this case, type READ NOTEBOOK.]";
+      TUT_READ_NOTEBOOK:
+        print_ret (italic)"^[Now that you know how to deal with the vampire, you can discard the notebook. Type DROP NOTEBOOK to drop it.]";
+      TUT_DROP_NOTEBOOK:
+        print_ret (italic)"^[Discarding the notebook is probably not a good idea, as you may need to refer to it later. You can pick it up again using GET or TAKE. Try it now. Type GET NOTEBOOK.]";
+      TUT_TAKE_NOTEBOOK:
+        print_ret (italic)"^[Your pocket is like a container. You can put things in a container using PUT or INSERT. Type PUT NOTEBOOK IN POCKET to put the notebook back into your pocket. This will also free up space in your inventory.]";
+      TUT_PUT_NOTEBOOK_IN_POCKET:
+        print_ret (italic)"^[Try taking an INVENTORY again to see what has changed. Type I.]";
+      TUT_CANT_GO:
+        print_ret (italic)"^[It looks like you need to enter the castle. That door looks promising. Type ENTER DOOR.]";
+      TUT_EXAMINE_DOOR:
+        print_ret (italic)"^[If the door is closed, type OPEN DOOR.]";
+      TUT_OPEN_DOOR:
+        print_ret (italic)"^[If the door is locked, you'll have to find another way in. Type ENTER WINDOW.]";
+      TUT_EXAMINE_WINDOW:
+        print_ret (italic)"^[If the window is too high, maybe you can find a way of climbing up. There's nothing obvious outside the castle, so type EAST or ENTER STABLE and have a look around in there.]";
+      TUT_EXAMINE_LOFT:
+        print_ret (italic)"^[If you want to see what's in the hay loft, type UP or CLIMB LADDER.]";
+      TUT_TAKE_LADDER:
+        print_ret (italic)"^[Now that you've taken the ladder, type WEST, OUT or EXIT STABLE to leave the stable.]";
+      TUT_ENTER_ROOM01:
+        print_ret (italic)"^[If you want to climb the ladder, type DROP LADDER first.]";
+      TUT_DROP_LADDER:
+        print_ret (italic)"^[Now that the ladder is in place, type UP or CLIMB LADDER.]";
+      TUT_ENTER_ROOM02:
+        print_ret (italic)"^[When you enter a new location, remember to identify all the objects in the description and EXAMINE each one. For example, X STABLE, X HAY LOFT, X CARRIAGE and X LADDER. These may provide more details or an important clue.]";
+      TUT_ENTER_ROOM04:
+        print_ret (italic)"^[It's time to explore the castle. Remember that you can move around using N, S, E, W, U and D. The location description will usually tell you which directions you can go.]";
+      TUT_OPEN_LOCKED_DOOR:
+        print_ret (italic)"^[If you find something that's locked, you may need a key to unlock it. Have you found a key anywhere? If you have, type UNLOCK DOOR WITH KEY.]";
+      TUT_ENTER_ROOM05:
+        print_ret (italic)"^[You're on your own now. Type HELP for a quick reminder of the main commands or HINT if you get stuck. The tutorial will continue to offer occasional suggestions.]";
+      TUT_EXAMINE_BED:
+        print_ret (italic)"^[The sheets may be hiding something. Always remember to EXAMINE any new things you find.]";
+      TUT_OPEN_LOCKED_CUPBOARD:
+        print_ret (italic)"^[If you find something that's locked, you may need a key to unlock it. Have you found a key anywhere? If you have, type UNLOCK CUPBOARD WITH KEY.]";
+      TUT_OPEN_CUPBOARD:
+        print_ret (italic)"^[If you have enough room in your inventory, you can take multiple objects out of a container at the same time. Type GET ALL FROM CUPBOARD.]";
+      TUT_MATCH_EXTINGUISHED:
+        print_ret (italic)"^[Try putting the match in a container with deep sides.]";
+      TUT_CANDLE_EXTINGUISHED:
+        print_ret (italic)"^[Try putting the candle in a container with deep sides.]";
+      TUT_ENTER_DARK:
+        print_ret (italic)"^[When it's too dark to see, you'll need to find a light source. Have you found anything that can be lit?]";
+      TUT_INVENTORY_FULL:
+        print_ret (italic)"^[You can only carry eight objects, not counting worn objects or objects in containers. Try dropping objects that you no longer need.]";
+    }
+  }
+  rtrue;
+];
+
+[ UpperCase c; ! for ZSCII matching ISO 8859-1
+  switch (c)
+  {
+    'a' to 'z': c = c - 32;
+    201, 203, 211, 213, 220: c++;
+    215, 216: c = c + 2;
+    155 to 157, 164, 165, 205 to 207: c = c + 3;
+    181 to 185, 191 to 195: c = c + 5 ;
+    169 to 174: c = c + 6;
+  }
+  return c;
+];
+
+!========================================
+! Grammar
+!========================================
+Extend 'attack'
+  * noun 'with' noun -> Attack;
+
+Extend 'blow' first
+  * noun -> Blow
+  * 'on'/'onto' noun -> Blow
+  * 'out' noun -> Extinguish
+  * noun 'out' -> Extinguish;
+
+Extend 'climb' first
+  * 'up' -> Ascend
+  * 'up' noun -> Ascend
+  * 'down' -> Descend
+  * 'down' noun -> Descend
+  * 'out' 'of' noun -> Exit
+  * 'in'/'out'/'through' noun -> Enter;
+
+Extend 'close'
+  * noun 'with' noun -> Close;
+
+Extend 'enter'
+  * 'through' noun -> Enter;
+
+Extend only 'get' first
+  * 'out' -> Exit;
+
+Extend 'go'
+  * 'through' noun -> Enter;
+
+Extend 'jump'
+  * 'on' noun -> Enter
+  * 'from'/'out'/'through' noun -> Exit;
+
+Extend 'look'
+  * 'into' noun -> Search
+  * 'under' noun -> LookUnder;
+
+Extend only 'open' 'uncover' 'unwrap' replace
+  * noun -> Open
+  * noun 'with' noun -> Pry;
+
+Extend only 'pry' 'prise' 'prize' 'lever' 'jemmy' 'force' replace
+  * noun -> Pry
+  * noun 'with' noun -> Pry
+  * 'apart'/'open' noun 'with' noun -> Pry
+  * noun 'apart'/'open' 'with' noun -> Pry;
+
+Extend 'push'
+  * noun 'in'/'into'/'inside' noun -> Push;
+
+Extend only 'put'
+  * noun 'over' noun -> PutOn
+  * 'out' noun -> Extinguish
+  * noun 'out' -> Extinguish
+  * 'out' noun 'with' held -> Extinguish
+  * noun 'out' 'with' held -> Extinguish;
+
+Extend 'read' first
+  * noun -> Read;
+
+Extend 'say' first
+  * topic -> Say
+  * -> Say;
+
+Extend only 'speak' replace
+  * -> Talk
+  * creature -> Talk
+  * noun -> Talk
+  * 'to'/'with' creature -> Talk
+  * 'to'/'with' noun -> Talk
+  * 'to'/'with' creature 'about' topic -> Ask
+  * 'to'/'with' noun 'about' topic -> Ask;
+
+Extend only 'unlock' first
+  * noun -> Unlock;
+
+Extend 'wear' first
+  * noun -> Wear;
+
+Verb meta 'about' 'info'
+  * -> About;
+
+Verb 'ascend'
+  * noun -> Ascend;
+
+Verb 'count'
+  * noun -> Count;
+
+Verb meta 'credits'
+  * -> Credits;
+
+Verb 'dance'
+  * -> Dance;
+
+Verb 'descend'
+  * noun -> Descend;
+
+Verb 'drive' 'hammer' 'poke' 'thrust' = 'push';
+
+Verb 'extinguish' 'douse' 'unlight'
+  * noun -> Extinguish
+  * noun 'with' held -> Extinguish;
+
+Verb 'greet'
+  * creature -> Talk
+  * noun -> Talk;
+
+Verb 'hang' = 'put';
+
+Verb 'how' 'what' 'where' 'when' 'why'
+  * topic -> Question;
+
+Verb 'help' 'instructions'
+  * -> Help;
+
+Verb 'hint' 'clue'
+  * -> Hint;
+
+Verb 'kick' 'knock' 'bang' 'rap' 'tap'
+  * noun -> Attack
+  * 'at'/'on' noun -> Attack;
+
+Verb 'lift' 'raise'
+  * noun -> Lift
+  * noun 'with' noun -> Lift;
+
+Verb 'sharpen' 'grind'
+  * noun -> Sharpen
+  * noun 'with' noun -> Sharpen;
+
+Verb 'stab' 'stake' = 'attack';
+
+Verb 'talk' 'babble' 'chat' 'communicate' 'converse' 'gab' 'gossip'
+  * -> Talk
+  * creature -> Talk
+  * noun -> Talk
+  * 'to'/'with' creature -> Talk
+  * 'to'/'with' noun -> Talk
+  * 'to'/'with' creature 'about' topic -> Ask
+  * 'to'/'with' noun 'about' topic -> Ask;
+
+Verb meta 'tutorial'
+  * -> Tutorial
+  * 'on' -> TutorialOn
+  * 'off' -> TutorialOff;
+
+Verb 'use'
+  * -> Use
+  * noun -> Use;
+
+Verb 'xyzzy' 'plover' 'plugh' 'yoho'
+  * -> MagicWord;
+
+!========================================
+! Actions
+!========================================
+[ AboutSub;
+  print "This game was inspired by the Spanish game 'Aventuras Alcazo' (Adventure Alcazo) written by Jaume Alcazo Castellarnau in Sintac G3 and published by Club de Aventuras AD (CAAD) in 1998.^^In 1996, Jose Luis Diaz developed InformATE, a Spanish version of the Inform 6 library. In 2000, he ported 'Aventuras Alcazo' to Inform 6 as an example of how to use the library to write a simple adventure. He thought it would be a good idea to write the same adventure in other adventure authoring systems and thus 'Proyecto Vampiro' (Project Vampire) was born. The game was ported to at least 17 different systems as 'Vampiro: Memorias de reXXe' (Vampire: Memoirs of reXXe) or similar titles.^^In 2007, it was again ported to Inform 6, this time by Sarganar. In 2017, I translated this to English, made some small enhancements and fixed a lot of bugs. In 2020, I enhanced the game and added a couple of puzzles.^^In 2022, I ported it to the PunyInform library and completely rewrote the game based around a story by Dr Franz Hartmann and first published as a true account on vampirism in ", (italic)"The Occult Review", ", London, September 1909. I changed the map, expanded the vocabulary, rewrote all the text, added more puzzles, added the tutorial mode and renamed it to 'Carpathian Vampire'. This was first published in the Text Adventure Literacy Jam 2022.^^";
+  <<Credits>>;
+];
+
+[ AscendSub;
+  <<Go FAKE_U_OBJ>>;
+];
+
+[ CountSub;
+  if (noun has pluralname)
+    "There's more than one.";
+  "There's only one.";
+];
+
+[ CreditsSub;
+  "Original concept by Jaume Alcazo Castellarnau^Original story by Dr Franz Hartmann^Game design and coding by Garry Francis^Play testing by Amanda Walker, Christopher Merriner, Dee Cooke, Edo Rajh, Jade J Aincioa, Johan Berntsson, Lionel Ange, Ray Leandro and Shawn Sijnstra";
+];
+
+[ DanceSub;
+  "You dance around in a little circle and nearly trip over.";
+];
+
+[ DescendSub;
+  <<Go FAKE_D_OBJ>>;
+];
+
+[ ExtinguishSub;
+  if (ObjectIsUntouchable(noun))
+    return;
+  "You can't extinguish ", (ThatOrThose)noun, ".";
+];
+
+[ HelpSub;
+  print "Tell me what to do using simple commands starting with a verb.^^Use LOOK (or L) to refresh the location description. Identify all the objects in the description and EXAMINE (or X) each one. Read responses carefully for hints.^^Use compass directions (N, S, E, W, U and D) to move around. Draw a map as you go.^^Use GET or TAKE to take objects and DROP to drop them again. Use INVENTORY (or I) to see what you're carrying.^^Use AGAIN (or G) to repeat the last command.^^";
+#Ifv5;
+  print "Use UNDO to undo the last command if you make a mistake.^^";
+#Endif;
+  "Use SAVE to save the game and RESTORE to restore it again.^^There are over 100 verbs that you can use, so if something doesn't work, try a different verb or a different way of doing things. Use HINT if you get stuck.";
+];
+
+[ HintSub;
+  if (vampire notin nothing)
+    "Take a note^Examine all^Draw a map^Do not stall";
+  "Now the evil^Is no more^Make your way^To the door";
+];
+
+[ LiftSub;
+  if (noun has scenery or static)
+    "You can't lift that.";
+  if (noun in player)
+    "As you're already holding ", (ThatOrThose)noun, ", it's safe to presume that you've already lifted ", (ItOrThem)noun, ".";
+  "You lift up ", (the)noun, " but can't see anything interesting and put it down again.";
+];
+
+[ LockSub k;
+  if (ObjectIsUntouchable(noun))
+    return;
+  if (noun hasnt lockable)
+    "You can't lock ", (ThatOrThose)noun, ".";
+  if (noun has locked)
+    print_ret (The)noun, " is already locked.";
+  k = RunRoutines(noun, with_key);
+  if (second == nothing && k ~= nothing && k in player)
+  {
+    second = k;
+    print "(with ", (the)second, ")^";
+  }
+  if (noun has open)
+    "You'll have to close ", (the) noun, " first.";
+  if (second == nothing)
+    "You don't have the key.";
+  if (second ~= k)
+    print_ret (The)second, " ", (DoesntOrDont)second, " fit the lock.";
+  give noun locked;
+  if (AfterRoutines() || keep_silent)
+    return;
+  "You lock ", (the)noun, ".";
+];
+
+[ LookUnderSub;
+  if (location == thedark)
+    "But it's dark.";
+  "You find nothing of interest.";
+];
+
+[ MagicWordSub;
+  "Magic words don't work in the Carpathian Mountains.";
+];
+
+[ PrySub;
+  if (ObjectIsUntouchable(noun))
+    return;
+  if (AfterRoutines() == 1)
+    rtrue;
+  if (keep_silent == 1)
+    rtrue;
+  "You can't pry that apart.";
+];
+
+[ QuestionSub;
+  "Sorry, I can't answer questions. I can only carry out commands. Type HELP for a reminder of what to do.";
+];
+
+[ ReadSub;
+  "There's nothing legible on ", (ThatOrThose)noun, ".";
+];
+
+[ SaySub i;
+  if (consult_words == 0)
+    "You have nothing to say.";
+  print "~";
+  i = consult_from;
+  print (firstConsultWord)i++;
+  while (i < consult_from + consult_words)
+    print " ", (consultWord)i++;
+  print ".~^^";
+  if (AfterRoutines())
+    return;
+  "Nothing happens.";
+];
+
+[ SharpenSub;
+  if (ObjectIsUntouchable(noun))
+    return;
+  if (second == nothing)
+    "You'll have to tell me what to sharpen ", (the)noun, " with.";
+  if (ObjectIsUntouchable(second))
+    return;
+  "You can't sharpen ", (the)noun, " with ", (the)second, ".";
+];
+
+[ TalkSub;
+  if (noun == nothing)
+    "You start babbling to no one in particular.";
+  if (noun == player)
+    "You start babbling to yourself, but it's a one-sided conversation.";
+  if (RunLife(noun, ##Talk))
+    rtrue;
+  print_ret (The)noun, " ", (IsOrAre)noun, " not very talkative.";
+];
+
+[ TutorialSub;
+  print "Tutorial mode is currently ";
+  if (tutorial)
+    "on.";
+  else
+    "off.";
+];
+
+[ TutorialOnSub;
+  if (tutorial)
+    "Tutorial mode is already on.";
+  tutorial = true;
+  "Tutorial mode is now on.";
+];
+
+[ TutorialOffSub;
+  if (~~tutorial)
+    "Tutorial mode is already off.";
+  tutorial = false;
+  "Tutorial mode is now off.";
+];
+
+[ UnlockSub k;
+  if (ObjectIsUntouchable(noun))
+    return;
+  if (noun hasnt lockable)
+    "You can't unlock ", (the)noun, ".";
+  if (noun hasnt locked)
+    print_ret (The)noun, " ", (IsOrAre)noun, " already unlocked.";
+  k = RunRoutines(noun, with_key);
+  if (second == nothing && k ~= nothing && k in player)
+  {
+    second = k;
+    print "(with ", (the)second, ")^";
+  }
+  if (second == nothing)
+    "You don't have the key.";
+  if (second ~= k)
+    print_ret (The)second, " ", (DoesntOrDont)second, " fit the lock.";
+  give noun ~locked;
+  if (AfterRoutines() || keep_silent)
+    return;
+  "You unlock ", (the)noun, ".";
+];
+
+[ UseSub;
+  "'Use' is a very vague concept. You'll have to be more explicit than that.";
+];
+
+End;

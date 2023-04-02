@@ -1,0 +1,167 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<trizbort version="1.5.9.3">
+	<info>
+		<title>Carpathian Vampire</title>
+		<author>Garry Francis</author>
+	</info>
+	<map>
+		<room id="2" name="Bedroom" subtitle="" x="-400" y="-160" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw">Bedroom|Wardrobe|(Woman's clothing)|(Silver crucifix)|(Corpus)|Bed|Sheets|(Small key)</objects>
+		</room>
+		<room id="3" name="Staircase" subtitle="" x="-280" y="-160" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw">Passageway|Stairs</objects>
+		</room>
+		<room id="4" name="Dining Room" subtitle="" x="-160" y="0" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw">Dining room|Fireplace|Ashes|(Piece of wood)|(Sharpened stake)|Poker|Dining table|Dining chairs</objects>
+		</room>
+		<room id="6" name="Cellar" subtitle="" x="-160" y="-80" w="80" h="40" region="Dark" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw">Cellar|Stairs|Grinding wheel|Barrel|(Hammer)</objects>
+		</room>
+		<line id="27">
+			<dock index="0" id="2" port="e" />
+			<dock index="1" id="3" port="w" />
+		</line>
+		<line id="28">
+			<dock index="0" id="3" port="e" />
+			<dock index="1" id="65" port="w" />
+		</line>
+		<room id="92" name="Carpathian Vampire (Garry Francis)" subtitle="" x="-440" y="-280" w="280" h="40" region="NoRegion" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="None" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw" />
+		</room>
+		<room id="37" name="Vampire's Room" subtitle="" x="-520" y="-240" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw">Vampire's room|Bracket|Altar|Coffin|Wooden door|Board|(Vampire)|(Nose)|(Heart)|(Soil)|(Large key)|</objects>
+		</room>
+		<room id="38" name="Top Landing" subtitle="" x="-400" y="-240" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw">Top landing|Opening|Stairs|Carpathian Mountains|Wooden door|Keyhole|(Narrow gap)|(Board)</objects>
+		</room>
+		<room id="63" name="Kitchen" subtitle="" x="-400" y="0" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw">Kitchen|Pots and pans|Oven|Sink|(Knife)|Small  cupboard|(Tin can)|(String of garlic)|(Matchbox)|(Matches)|(Match)</objects>
+		</room>
+		<room id="64" name="Passageway" subtitle="" x="-280" y="0" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw">Passageway|Life-sized portrait|Lady|Nose|Broad-brimmed hat|Fur coat|High collar</objects>
+		</room>
+		<room id="65" name="Library" subtitle="" x="-160" y="-160" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw">Library|Trophies|Ornaments|Reading table|(Candle)|Lounge chair|Books</objects>
+		</room>
+		<room id="67" name="Lobby" subtitle="" x="-280" y="80" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw">Lobby|Window|Passageway|Front door|Mirror frame</objects>
+		</room>
+		<line id="95" style="dashed">
+			<dock index="0" id="37" port="e" />
+			<dock index="1" id="38" port="w" />
+		</line>
+		<line id="112">
+			<dock index="0" id="63" port="e" />
+			<dock index="1" id="64" port="w" />
+		</line>
+		<line id="113">
+			<dock index="0" id="64" port="e" />
+			<dock index="1" id="4" port="w" />
+		</line>
+		<line id="131">
+			<dock index="0" id="64" port="s" />
+			<dock index="1" id="67" port="n" />
+		</line>
+		<room id="231" name="Copyright © Garry Francis 2022" subtitle="" x="-520" y="160" w="180" h="40" region="NoRegion" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="None" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw" />
+		</room>
+		<room id="232" name="Legend" subtitle="" x="-520" y="-120" w="80" h="40" region="NoRegion" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="0" cornerTopRight="0" cornerBottomLeft="0" cornerBottomRight="0" borderstyle="None" description="" roomFill="#FFFFFF" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw" />
+		</room>
+		<room id="240" name="Start Room" subtitle="" x="-520" y="-80" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="0" cornerTopRight="0" cornerBottomLeft="0" cornerBottomRight="0" borderstyle="Solid" isDark="yes" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw" />
+		</room>
+		<room id="241" name="Normal Room" subtitle="" x="-520" y="-20" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="no" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="0" cornerTopRight="0" cornerBottomLeft="0" cornerBottomRight="0" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw" />
+		</room>
+		<line id="1" startText="D" endText="U">
+			<dock index="0" id="3" port="se" />
+			<dock index="1" id="6" port="nw" />
+		</line>
+		<line id="26">
+			<dock index="0" id="3" port="s" />
+			<dock index="1" id="64" port="n" />
+		</line>
+		<line id="5" startText="D" endText="U">
+			<dock index="0" id="38" port="se" />
+			<dock index="1" id="3" port="nw" />
+		</line>
+		<room id="7" name="Dark Room" subtitle="" x="-520" y="40" w="80" h="40" region="Dark" handDrawn="no" allcornersequal="yes" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw" />
+		</room>
+		<room id="8" name="Outside Castle" subtitle="" x="-280" y="160" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="yes" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" isDark="yes" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw">Castle|Front door|Window|Stable|(Cheap suit)|(Pocket)|(Notebook)</objects>
+		</room>
+		<line id="9" style="dashed" endText="U">
+			<dock index="0" id="67" port="s" />
+			<dock index="1" id="8" port="n" />
+		</line>
+		<room id="10" name="Hay Loft" subtitle="" x="-160" y="80" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="yes" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw">Hay loft|Stable|Ladder|Horses</objects>
+		</room>
+		<room id="11" name="Stable" subtitle="" x="-160" y="160" w="80" h="40" region="Normal" handDrawn="no" allcornersequal="yes" ellipse="no" roundedCorners="no" octagonal="no" cornerTopLeft="1" cornerTopRight="1" cornerBottomLeft="1" cornerBottomRight="1" borderstyle="Solid" description="" roomFill="" secondFill="" secondFillLocation="Bottom" roomBorder="" roomLargeText="" roomSmallText="">
+			<objects at="wsw">Stable|Hay loft|Wooden fittings|Sunlight|Carriage|Coat of arms|Horses|Ladder</objects>
+		</room>
+		<line id="12" style="dashed" startText="D" endText="U">
+			<dock index="0" id="10" port="s" />
+			<dock index="1" id="11" port="n" />
+		</line>
+		<line id="13">
+			<dock index="0" id="8" port="e" />
+			<dock index="1" id="11" port="w" />
+		</line>
+	</map>
+	<settings>
+		<colors>
+			<canvas>White</canvas>
+			<fill>#FFFF99</fill>
+			<border>Black</border>
+			<line>Black</line>
+			<selectedLine>Gold</selectedLine>
+			<hoverLine>DarkOrange</hoverLine>
+			<largeText>Black</largeText>
+			<smallText>Black</smallText>
+			<lineText>Black</lineText>
+			<grid>#F5F5F5</grid>
+		</colors>
+		<regions>
+			<Dark Name="Dark" TextColor="Black">Silver</Dark>
+			<Dead Name="Dead" TextColor="White">Red</Dead>
+			<NoRegion Name="NoRegion" TextColor="Black">White</NoRegion>
+			<Normal Name="Normal" TextColor="Black">#FFFF80</Normal>
+			<Underwater Name="Underwater" TextColor="Black">#80FFFF</Underwater>
+		</regions>
+		<fonts>
+			<room size="12">Arial</room>
+			<object size="12">Arial Narrow</object>
+			<line size="12">Arial Narrow</line>
+		</fonts>
+		<grid>
+			<snapTo>yes</snapTo>
+			<visible>yes</visible>
+			<showOrigin>yes</showOrigin>
+			<size>20</size>
+		</grid>
+		<lines>
+			<width>1</width>
+			<handDrawn>no</handDrawn>
+			<arrowSize>8</arrowSize>
+			<textOffset>4</textOffset>
+		</lines>
+		<rooms>
+			<darknessStripeSize>10</darknessStripeSize>
+			<objectListOffset>4</objectListOffset>
+			<connectionStalkLength>20</connectionStalkLength>
+			<preferredDistanceBetweenRooms>40</preferredDistanceBetweenRooms>
+			<defaultRoomName>Cave</defaultRoomName>
+		</rooms>
+		<ui>
+			<handleSize>8</handleSize>
+			<snapToElementSize>8</snapToElementSize>
+		</ui>
+		<keypadNavigation>
+			<creationModifier>control</creationModifier>
+			<unexploredModifier>alt</unexploredModifier>
+		</keypadNavigation>
+	</settings>
+</trizbort>
