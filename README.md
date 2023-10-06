@@ -10,7 +10,7 @@ There have been recent reports of peasant children dying mysteriously in the loc
 
 The villagers have hired you to kill the vampire. After a long journey, you have arrived at the former count's castle. A cold shiver runs down your spine. Killing vampires is never easy. Why should this one be any different? But hurry. You don't want to be his next victim!
 
-This is a traditional text adventure that was written for [Text Adventure Literacy Jam 2022](https://itch.io/jam/talp2022), 21 March to 2 May 2022. The game is hosted at [Carpathian Vampire](https://warrigal.itch.io/carpathian-vampire).
+This is a traditional text adventure that was written for [Text Adventure Literacy Jam 2022](https://itch.io/jam/talp2022), 21 March to 2 May 2022.
 
 ## Release notes
 
